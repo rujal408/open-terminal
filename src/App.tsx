@@ -120,6 +120,7 @@ function AppContent() {
                 onInsertText={(fn) => {
                   insertTextRef.current = fn;
                 }}
+                dragDropPathMode="absolute"
               />
               <EditorManager
                 editors={activeWorkspace.openEditors}
