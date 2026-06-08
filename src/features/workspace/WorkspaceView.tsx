@@ -8,6 +8,7 @@ interface WorkspaceViewProps {
   workspace: Workspace;
   theme: Theme;
   settings: Settings;
+  isActive: boolean;
   onWorkspaceChange: (updated: Workspace) => void;
 }
 
@@ -15,6 +16,7 @@ export const WorkspaceView = memo(function WorkspaceView({
   workspace,
   theme,
   settings,
+  isActive,
   onWorkspaceChange,
 }: WorkspaceViewProps) {
   const [sidebarWidth, setSidebarWidth] = useState(250);
@@ -73,7 +75,6 @@ export const WorkspaceView = memo(function WorkspaceView({
       />
       <div className="flex-1 relative overflow-hidden">
         <TerminalView
-          key={workspace.ptyId}
           ptyId={workspace.ptyId}
           cwd={workspace.projectPath!}
           theme={theme}
@@ -81,6 +82,7 @@ export const WorkspaceView = memo(function WorkspaceView({
           scrollback={settings.terminal_scrollback}
           shell={settings.default_shell}
           dragDropPathMode={settings.drag_drop_path_mode}
+          isActive={isActive}
         />
         <EditorManager
           editors={workspace.openEditors}

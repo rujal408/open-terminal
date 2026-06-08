@@ -117,18 +117,30 @@ function AppContent() {
           ⚙
         </button>
       </div>
-      <div className="flex-1 overflow-hidden">
-        {activeWorkspace.projectPath === null ? (
+      <div className="flex-1 overflow-hidden relative">
+        {/* Welcome screen for active tab if no project */}
+        {activeWorkspace.projectPath === null && (
           <WelcomeScreen onOpenProject={handleOpenProject} />
-        ) : (
-          <WorkspaceView
-            key={activeWorkspace.id}
-            workspace={activeWorkspace}
-            theme={theme}
-            settings={settings}
-            onWorkspaceChange={handleWorkspaceChange}
-          />
         )}
+
+        {/* Render ALL opened workspaces — hide inactive ones with display:none */}
+        {workspaces
+          .filter((ws) => ws.projectPath !== null)
+          .map((ws) => (
+            <div
+              key={ws.id}
+              className="absolute inset-0"
+              style={{ display: ws.id === activeId ? "block" : "none" }}
+            >
+              <WorkspaceView
+                workspace={ws}
+                theme={theme}
+                settings={settings}
+                isActive={ws.id === activeId}
+                onWorkspaceChange={handleWorkspaceChange}
+              />
+            </div>
+          ))}
       </div>
       {showSettings && (
         <SettingsPanel

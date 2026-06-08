@@ -193,5 +193,9 @@ export function useTerminal({
     termRef.current?.focus();
   }, []);
 
-  return { attach, insertText, focus };
+  const refit = useCallback(() => {
+    fitRef.current?.fit();
+  }, []);
+
+  return { attach, insertText, focus, refit };
 }

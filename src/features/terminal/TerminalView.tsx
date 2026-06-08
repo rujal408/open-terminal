@@ -11,6 +11,7 @@ interface TerminalViewProps {
   scrollback: number;
   shell: string | null;
   dragDropPathMode: "absolute" | "relative";
+  isActive: boolean;
 }
 
 export const TerminalView = memo(function TerminalView({
@@ -21,10 +22,11 @@ export const TerminalView = memo(function TerminalView({
   scrollback,
   shell,
   dragDropPathMode,
+  isActive,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const { attach, insertText, focus } = useTerminal({
+  const { attach, insertText, focus, refit } = useTerminal({
     ptyId,
     cwd,
     theme,
@@ -44,6 +46,17 @@ export const TerminalView = memo(function TerminalView({
       cleanupRef.current?.();
     };
   }, [attach]);
+
+  // When tab becomes visible again, refit terminal (it had display:none, dimensions were 0)
+  useEffect(() => {
+    if (isActive) {
+      // Small delay to let the browser layout the now-visible container
+      const id = requestAnimationFrame(() => {
+        refit();
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [isActive, refit]);
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
