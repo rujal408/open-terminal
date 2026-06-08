@@ -345,18 +345,32 @@ html, body, #root {
   font-size: 10px;
 }
 
-.editor-close {
+.editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.editor-action-btn {
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   padding: 0 4px;
   line-height: 1;
 }
 
-.editor-close:hover {
+.editor-action-btn:hover {
   color: var(--text);
+}
+
+.editor-close:hover {
+  color: #f38ba8;
+}
+
+.editor-maximized {
+  border-radius: 0;
 }
 
 .editor-body {

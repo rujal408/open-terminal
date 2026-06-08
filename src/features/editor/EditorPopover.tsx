@@ -63,6 +63,8 @@ export function EditorPopover({
   const [isDirty, setIsDirty] = useState(false);
   const [position, setPosition] = useState(panel.position);
   const [size, setSize] = useState(panel.size);
+  const [maximized, setMaximized] = useState(false);
+  const preMaxRef = useRef<{ position: typeof panel.position; size: typeof panel.size } | null>(null);
   const draggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -209,37 +211,64 @@ export function EditorPopover({
     document.addEventListener("mouseup", handleMouseUp);
   }
 
+  function handleToggleMaximize() {
+    if (maximized) {
+      // Restore
+      if (preMaxRef.current) {
+        setPosition(preMaxRef.current.position);
+        setSize(preMaxRef.current.size);
+      }
+      preMaxRef.current = null;
+      setMaximized(false);
+    } else {
+      // Save current and maximize
+      preMaxRef.current = { position, size };
+      setPosition({ x: 0, y: 0 });
+      setSize({ width: 99999, height: 99999 }); // clamped by 100% in CSS
+      setMaximized(true);
+    }
+  }
+
   return (
     <div
-      className="editor-popover"
-      style={{
-        left: position.x,
-        top: position.y,
-        width: size.width,
-        height: size.height,
-        zIndex,
-      }}
+      className={`editor-popover ${maximized ? "editor-maximized" : ""}`}
+      style={
+        maximized
+          ? { left: 0, top: 0, width: "100%", height: "100%", zIndex }
+          : { left: position.x, top: position.y, width: size.width, height: size.height, zIndex }
+      }
       onMouseDown={() => onFocus(panel.id)}
     >
-      {/* Resize handles — edges */}
-      <div className="resize-edge resize-n" onMouseDown={(e) => handleResizeStart(e, "n")} />
-      <div className="resize-edge resize-s" onMouseDown={(e) => handleResizeStart(e, "s")} />
-      <div className="resize-edge resize-e" onMouseDown={(e) => handleResizeStart(e, "e")} />
-      <div className="resize-edge resize-w" onMouseDown={(e) => handleResizeStart(e, "w")} />
-      {/* Resize handles — corners */}
-      <div className="resize-corner resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
-      <div className="resize-corner resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
-      <div className="resize-corner resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
-      <div className="resize-corner resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
-
-      <div className="editor-title-bar" onMouseDown={handleTitleMouseDown}>
+      {/* Resize handles — only when not maximized */}
+      {!maximized && (
+        <>
+          <div className="resize-edge resize-n" onMouseDown={(e) => handleResizeStart(e, "n")} />
+          <div className="resize-edge resize-s" onMouseDown={(e) => handleResizeStart(e, "s")} />
+          <div className="resize-edge resize-e" onMouseDown={(e) => handleResizeStart(e, "e")} />
+          <div className="resize-edge resize-w" onMouseDown={(e) => handleResizeStart(e, "w")} />
+          <div className="resize-corner resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
+          <div className="resize-corner resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
+          <div className="resize-corner resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
+          <div className="resize-corner resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
+        </>
+      )}
+      <div className="editor-title-bar" onMouseDown={maximized ? undefined : handleTitleMouseDown}>
         <span className="editor-filename">
           {isDirty && <span className="editor-dirty">●</span>}
           {fileName}
         </span>
-        <button className="editor-close" onClick={handleClose}>
-          ×
-        </button>
+        <div className="editor-actions">
+          <button
+            className="editor-action-btn"
+            onClick={handleToggleMaximize}
+            title={maximized ? "Restore" : "Maximize"}
+          >
+            {maximized ? "◱" : "◳"}
+          </button>
+          <button className="editor-action-btn editor-close" onClick={handleClose}>
+            ×
+          </button>
+        </div>
       </div>
       <div ref={editorContainerRef} className="editor-body" />
     </div>
