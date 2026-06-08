@@ -48,54 +48,87 @@ export function useTerminal({
   scrollback,
   shell,
 }: UseTerminalOptions) {
-  const terminalRef = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
   const spawnedRef = useRef(false);
+  const unlistenRef = useRef<(() => void) | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const onDataDisposableRef = useRef<{ dispose: () => void } | null>(null);
 
+  // Create terminal once on mount, destroy on unmount
+  useEffect(() => {
+    const term = new Terminal({
+      fontSize,
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
+      theme: themeToXterm(theme),
+      scrollback,
+      cursorBlink: true,
+    });
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    termRef.current = term;
+    fitRef.current = fitAddon;
+
+    return () => {
+      term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
+    };
+    // Only run on mount/unmount — ptyId is stable per component instance (keyed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ptyId]);
+
+  // Update theme without recreating terminal
+  useEffect(() => {
+    if (termRef.current) {
+      termRef.current.options.theme = themeToXterm(theme);
+    }
+  }, [theme]);
+
+  // Update font size without recreating terminal
+  useEffect(() => {
+    if (termRef.current) {
+      termRef.current.options.fontSize = fontSize;
+      fitRef.current?.fit();
+    }
+  }, [fontSize]);
+
+  // Attach terminal to a DOM container
   const attach = useCallback(
     (container: HTMLDivElement | null) => {
-      containerRef.current = container;
-      if (!container) return;
-
-      if (!terminalRef.current) {
-        const term = new Terminal({
-          fontSize,
-          fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
-          theme: themeToXterm(theme),
-          scrollback,
-          cursorBlink: true,
-          allowProposedApi: true,
-        });
-        const fitAddon = new FitAddon();
-        term.loadAddon(fitAddon);
-        terminalRef.current = term;
-        fitAddonRef.current = fitAddon;
-      }
-
-      const term = terminalRef.current;
-      const fitAddon = fitAddonRef.current!;
+      const term = termRef.current;
+      const fitAddon = fitRef.current;
+      if (!container || !term || !fitAddon) return;
 
       term.open(container);
 
       try {
         term.loadAddon(new WebglAddon());
       } catch {
-        // WebGL not available — fall back to canvas renderer
+        // WebGL not available — canvas fallback
       }
 
       fitAddon.fit();
 
-      term.onData((data) => {
-        invoke("write_pty", { ptyId, data: Array.from(new TextEncoder().encode(data)) });
+      // Register input handler (keystrokes → PTY)
+      onDataDisposableRef.current = term.onData((data) => {
+        invoke("write_pty", {
+          ptyId,
+          data: Array.from(new TextEncoder().encode(data)),
+        });
       });
 
+      // Listen for PTY output → terminal
       const eventName = `pty-output:${ptyId}`;
-      const unlisten = listen<number[]>(eventName, (event) => {
+      const unlistenPromise = listen<number[]>(eventName, (event) => {
         const bytes = new Uint8Array(event.payload);
         term.write(bytes);
       });
+      unlistenPromise.then((fn) => {
+        unlistenRef.current = fn;
+      });
 
+      // Spawn PTY if first attach
       if (!spawnedRef.current) {
         spawnedRef.current = true;
         const { cols, rows } = term;
@@ -109,38 +142,38 @@ export function useTerminal({
         }).catch((err) => {
           term.writeln(`\r\nFailed to start shell: ${err}`);
         });
-      } else {
-        invoke<number[]>("get_scrollback", { ptyId }).then((data) => {
-          if (data.length > 0) {
-            term.write(new Uint8Array(data));
-          }
-        });
       }
 
-      const resizeObserver = new ResizeObserver(() => {
+      // Resize observer
+      const observer = new ResizeObserver(() => {
         fitAddon.fit();
         const { cols, rows } = term;
         invoke("resize_pty", { ptyId, rows, cols }).catch(() => {});
       });
-      resizeObserver.observe(container);
+      observer.observe(container);
+      resizeObserverRef.current = observer;
 
+      // Cleanup function
       return () => {
-        resizeObserver.disconnect();
-        unlisten.then((fn) => fn());
+        observer.disconnect();
+        resizeObserverRef.current = null;
+        onDataDisposableRef.current?.dispose();
+        onDataDisposableRef.current = null;
+        if (unlistenRef.current) {
+          unlistenRef.current();
+          unlistenRef.current = null;
+        }
       };
     },
-    [ptyId, cwd, theme, fontSize, scrollback, shell]
+    // Only depends on stable values — ptyId, cwd, shell don't change within a tab
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ptyId]
   );
 
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.options.theme = themeToXterm(theme);
-    }
-  }, [theme]);
-
+  // Window resize handler
   useEffect(() => {
     function handleResize() {
-      fitAddonRef.current?.fit();
+      fitRef.current?.fit();
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
