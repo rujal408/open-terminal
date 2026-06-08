@@ -7,6 +7,7 @@ import { TabBar } from "./features/tabs/TabBar";
 import { WelcomeScreen } from "./features/tabs/WelcomeScreen";
 import { TerminalView } from "./features/terminal/TerminalView";
 import type { Workspace } from "./types";
+import { FileTree } from "./features/file-tree/FileTree";
 import "./App.css";
 
 function createWorkspace(): Workspace {
@@ -92,9 +93,12 @@ function AppContent() {
           <WelcomeScreen onOpenProject={handleOpenProject} />
         ) : (
           <div className="workspace-content">
-            <div className="sidebar-placeholder">
-              File Tree: {activeWorkspace.projectPath}
-            </div>
+            <FileTree
+              projectPath={activeWorkspace.projectPath!}
+              onFileClick={(path) => {
+                console.log("Open file:", path);
+              }}
+            />
             <TerminalView
               key={activeWorkspace.ptyId}
               ptyId={activeWorkspace.ptyId}
