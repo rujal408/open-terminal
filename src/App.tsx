@@ -9,6 +9,8 @@ import { TerminalView } from "./features/terminal/TerminalView";
 import type { Workspace } from "./types";
 import { FileTree } from "./features/file-tree/FileTree";
 import { EditorManager, openEditorPanel } from "./features/editor/EditorManager";
+import { useSettings } from "./features/settings/useSettings";
+import { SettingsPanel } from "./features/settings/SettingsPanel";
 import "./App.css";
 
 function createWorkspace(): Workspace {
@@ -29,8 +31,10 @@ function AppContent() {
   const [activeId, setActiveId] = useState<string>(workspaces[0].id);
 
   const activeWorkspace = workspaces.find((ws) => ws.id === activeId)!;
-  const { theme } = useThemeContext();
+  const { theme, setTheme } = useThemeContext();
   const insertTextRef = useRef<((text: string) => void) | null>(null);
+  const { settings, updateSettings } = useSettings();
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleNew = useCallback(() => {
     const ws = createWorkspace();
@@ -81,14 +85,19 @@ function AppContent() {
 
   return (
     <div className="app">
-      <TabBar
-        workspaces={workspaces}
-        activeId={activeId}
-        onSelect={setActiveId}
-        onClose={handleClose}
-        onNew={handleNew}
-        onReorder={handleReorder}
-      />
+      <div className="top-bar">
+        <TabBar
+          workspaces={workspaces}
+          activeId={activeId}
+          onSelect={setActiveId}
+          onClose={handleClose}
+          onNew={handleNew}
+          onReorder={handleReorder}
+        />
+        <button className="settings-btn" onClick={() => setShowSettings(true)}>
+          ⚙
+        </button>
+      </div>
       <div className="workspace-area">
         {activeWorkspace.projectPath === null ? (
           <WelcomeScreen onOpenProject={handleOpenProject} />
@@ -114,13 +123,13 @@ function AppContent() {
                 ptyId={activeWorkspace.ptyId}
                 cwd={activeWorkspace.projectPath!}
                 theme={theme}
-                fontSize={14}
-                scrollback={5000}
-                shell={null}
+                fontSize={settings.font_size}
+                scrollback={settings.terminal_scrollback}
+                shell={settings.default_shell}
+                dragDropPathMode={settings.drag_drop_path_mode}
                 onInsertText={(fn) => {
                   insertTextRef.current = fn;
                 }}
-                dragDropPathMode="absolute"
               />
               <EditorManager
                 editors={activeWorkspace.openEditors}
@@ -137,6 +146,18 @@ function AppContent() {
           </div>
         )}
       </div>
+      {showSettings && (
+        <SettingsPanel
+          settings={settings}
+          onUpdate={(partial) => {
+            updateSettings(partial);
+            if (partial.theme) {
+              setTheme(partial.theme);
+            }
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }
