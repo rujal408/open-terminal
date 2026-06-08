@@ -1,3 +1,4 @@
+mod filesystem;
 mod settings;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -11,6 +12,13 @@ pub fn run() {
             settings::load_recent_projects,
             settings::add_recent_project,
             settings::remove_recent_project,
+            filesystem::list_directory,
+            filesystem::read_file,
+            filesystem::write_file,
+            filesystem::create_file,
+            filesystem::create_directory,
+            filesystem::rename_entry,
+            filesystem::delete_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
