@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import { EditorPopover } from "./EditorPopover";
@@ -10,36 +10,37 @@ interface EditorManagerProps {
   onEditorsChange: (editors: EditorPanel[]) => void;
 }
 
-export function EditorManager({
+export const EditorManager = memo(function EditorManager({
   editors,
   theme,
   onEditorsChange,
 }: EditorManagerProps) {
   const [focusOrder, setFocusOrder] = useState<string[]>([]);
 
-  const handleFocus = useCallback(
-    (id: string) => {
-      setFocusOrder((prev) => [...prev.filter((fid) => fid !== id), id]);
-    },
-    []
-  );
+  // Keep refs to avoid stale closures in callbacks
+  const editorsRef = useRef(editors);
+  editorsRef.current = editors;
+  const onEditorsChangeRef = useRef(onEditorsChange);
+  onEditorsChangeRef.current = onEditorsChange;
 
-  const handleClose = useCallback(
-    (id: string) => {
-      onEditorsChange(editors.filter((e) => e.id !== id));
-      setFocusOrder((prev) => prev.filter((fid) => fid !== id));
-    },
-    [editors, onEditorsChange]
-  );
+  const handleFocus = useCallback((id: string) => {
+    setFocusOrder((prev) => [...prev.filter((fid) => fid !== id), id]);
+  }, []);
 
-  const handleDirtyChange = useCallback(
-    (id: string, dirty: boolean) => {
-      onEditorsChange(
-        editors.map((e) => (e.id === id ? { ...e, isDirty: dirty } : e))
-      );
-    },
-    [editors, onEditorsChange]
-  );
+  const handleClose = useCallback((id: string) => {
+    onEditorsChangeRef.current(
+      editorsRef.current.filter((e) => e.id !== id)
+    );
+    setFocusOrder((prev) => prev.filter((fid) => fid !== id));
+  }, []);
+
+  const handleDirtyChange = useCallback((id: string, dirty: boolean) => {
+    onEditorsChangeRef.current(
+      editorsRef.current.map((e) =>
+        e.id === id ? { ...e, isDirty: dirty } : e
+      )
+    );
+  }, []);
 
   return (
     <>
@@ -61,7 +62,7 @@ export function EditorManager({
       })}
     </>
   );
-}
+});
 
 export async function openEditorPanel(
   filePath: string,

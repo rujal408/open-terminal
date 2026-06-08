@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Workspace } from "../../types";
 
 interface TabBarProps {
@@ -9,7 +10,7 @@ interface TabBarProps {
   onReorder: (fromIndex: number, toIndex: number) => void;
 }
 
-export function TabBar({
+export const TabBar = memo(function TabBar({
   workspaces,
   activeId,
   onSelect,
@@ -62,4 +63,4 @@ export function TabBar({
       </button>
     </div>
   );
-}
+});

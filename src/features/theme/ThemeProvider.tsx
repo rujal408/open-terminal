@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect, useMemo } from "react";
 import type { Theme } from "../../types";
 import { useTheme } from "./useTheme";
 
@@ -12,6 +12,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { theme, setTheme } = useTheme();
 
+  // Side effect: sync CSS custom properties to document root
   useEffect(() => {
     const root = document.documentElement;
     const c = theme.colors;
@@ -28,10 +29,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--editor-fg", c.editorFg);
   }, [theme]);
 
+  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
 }
 

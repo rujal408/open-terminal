@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, memo } from "react";
 import { useTerminal } from "./useTerminal";
 import type { Theme } from "../../types";
 import "xterm/css/xterm.css";
@@ -10,18 +10,16 @@ interface TerminalViewProps {
   fontSize: number;
   scrollback: number;
   shell: string | null;
-  onInsertText?: (fn: (text: string) => void) => void;
   dragDropPathMode: "absolute" | "relative";
 }
 
-export function TerminalView({
+export const TerminalView = memo(function TerminalView({
   ptyId,
   cwd,
   theme,
   fontSize,
   scrollback,
   shell,
-  onInsertText,
   dragDropPathMode,
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,10 +45,6 @@ export function TerminalView({
     };
   }, [attach]);
 
-  useEffect(() => {
-    onInsertText?.(insertText);
-  }, [onInsertText, insertText]);
-
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
@@ -67,7 +61,8 @@ export function TerminalView({
 
     const dataKey =
       dragDropPathMode === "relative" ? "relative-path" : "absolute-path";
-    let path = e.dataTransfer.getData(dataKey) || e.dataTransfer.getData("text/plain");
+    let path =
+      e.dataTransfer.getData(dataKey) || e.dataTransfer.getData("text/plain");
 
     if (!path) return;
 
@@ -89,4 +84,4 @@ export function TerminalView({
       onDrop={handleDrop}
     />
   );
-}
+});

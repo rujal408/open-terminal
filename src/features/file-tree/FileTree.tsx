@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileTreeNode } from "./FileTreeNode";
 import { ContextMenu } from "./ContextMenu";
@@ -10,7 +10,7 @@ interface FileTreeProps {
   onFileClick: (path: string) => void;
 }
 
-export function FileTree({ projectPath, onFileClick }: FileTreeProps) {
+export const FileTree = memo(function FileTree({ projectPath, onFileClick }: FileTreeProps) {
   const [entries, setEntries] = useState<DirEntry[]>([]);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -85,4 +85,4 @@ export function FileTree({ projectPath, onFileClick }: FileTreeProps) {
       )}
     </div>
   );
-}
+});

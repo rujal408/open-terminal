@@ -1,16 +1,13 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
-import { ThemeProvider } from "./features/theme/ThemeProvider";
-import { useThemeContext } from "./features/theme/ThemeProvider";
+import { ThemeProvider, useThemeContext } from "./features/theme/ThemeProvider";
 import { TabBar } from "./features/tabs/TabBar";
 import { WelcomeScreen } from "./features/tabs/WelcomeScreen";
-import { TerminalView } from "./features/terminal/TerminalView";
-import type { Workspace } from "./types";
-import { FileTree } from "./features/file-tree/FileTree";
-import { EditorManager, openEditorPanel } from "./features/editor/EditorManager";
+import { WorkspaceView } from "./features/workspace/WorkspaceView";
 import { useSettings } from "./features/settings/useSettings";
 import { SettingsPanel } from "./features/settings/SettingsPanel";
+import type { Workspace } from "./types";
 import "./App.css";
 
 function createWorkspace(): Workspace {
@@ -29,34 +26,12 @@ function AppContent() {
     createWorkspace(),
   ]);
   const [activeId, setActiveId] = useState<string>(workspaces[0].id);
+  const [showSettings, setShowSettings] = useState(false);
+
+  const { theme, setTheme } = useThemeContext();
+  const { settings, updateSettings } = useSettings();
 
   const activeWorkspace = workspaces.find((ws) => ws.id === activeId)!;
-  const { theme, setTheme } = useThemeContext();
-  const insertTextRef = useRef<((text: string) => void) | null>(null);
-  const { settings, updateSettings } = useSettings();
-  const [showSettings, setShowSettings] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(250);
-  const resizingRef = useRef(false);
-
-  function handleResizeStart(e: React.MouseEvent) {
-    e.preventDefault();
-    resizingRef.current = true;
-
-    function handleMouseMove(e: MouseEvent) {
-      if (!resizingRef.current) return;
-      const newWidth = Math.max(150, Math.min(500, e.clientX));
-      setSidebarWidth(newWidth);
-    }
-
-    function handleMouseUp() {
-      resizingRef.current = false;
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-    }
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  }
 
   const handleNew = useCallback(() => {
     const ws = createWorkspace();
@@ -105,6 +80,28 @@ function AppContent() {
     [activeId]
   );
 
+  const handleWorkspaceChange = useCallback(
+    (updated: Workspace) => {
+      setWorkspaces((prev) =>
+        prev.map((ws) => (ws.id === updated.id ? updated : ws))
+      );
+    },
+    []
+  );
+
+  const handleSettingsUpdate = useCallback(
+    (partial: Partial<typeof settings>) => {
+      updateSettings(partial);
+      if (partial.theme) {
+        setTheme(partial.theme);
+      }
+    },
+    [updateSettings, setTheme]
+  );
+
+  const handleSettingsClose = useCallback(() => setShowSettings(false), []);
+  const handleSettingsOpen = useCallback(() => setShowSettings(true), []);
+
   return (
     <div className="app">
       <div className="top-bar">
@@ -116,7 +113,7 @@ function AppContent() {
           onNew={handleNew}
           onReorder={handleReorder}
         />
-        <button className="settings-btn" onClick={() => setShowSettings(true)}>
+        <button className="settings-btn" onClick={handleSettingsOpen}>
           ⚙
         </button>
       </div>
@@ -124,63 +121,20 @@ function AppContent() {
         {activeWorkspace.projectPath === null ? (
           <WelcomeScreen onOpenProject={handleOpenProject} />
         ) : (
-          <div className="workspace-content">
-            <div style={{ width: sidebarWidth, flexShrink: 0 }}>
-              <FileTree
-                projectPath={activeWorkspace.projectPath!}
-                onFileClick={async (path) => {
-                  const updated = await openEditorPanel(
-                    path,
-                    activeWorkspace.openEditors
-                  );
-                  setWorkspaces((prev) =>
-                    prev.map((ws) =>
-                      ws.id === activeId ? { ...ws, openEditors: updated } : ws
-                    )
-                  );
-                }}
-              />
-            </div>
-            <div className="resize-handle" onMouseDown={handleResizeStart} />
-            <div className="terminal-and-editors">
-              <TerminalView
-                key={activeWorkspace.ptyId}
-                ptyId={activeWorkspace.ptyId}
-                cwd={activeWorkspace.projectPath!}
-                theme={theme}
-                fontSize={settings.font_size}
-                scrollback={settings.terminal_scrollback}
-                shell={settings.default_shell}
-                dragDropPathMode={settings.drag_drop_path_mode}
-                onInsertText={(fn) => {
-                  insertTextRef.current = fn;
-                }}
-              />
-              <EditorManager
-                editors={activeWorkspace.openEditors}
-                theme={theme}
-                onEditorsChange={(editors) => {
-                  setWorkspaces((prev) =>
-                    prev.map((ws) =>
-                      ws.id === activeId ? { ...ws, openEditors: editors } : ws
-                    )
-                  );
-                }}
-              />
-            </div>
-          </div>
+          <WorkspaceView
+            key={activeWorkspace.id}
+            workspace={activeWorkspace}
+            theme={theme}
+            settings={settings}
+            onWorkspaceChange={handleWorkspaceChange}
+          />
         )}
       </div>
       {showSettings && (
         <SettingsPanel
           settings={settings}
-          onUpdate={(partial) => {
-            updateSettings(partial);
-            if (partial.theme) {
-              setTheme(partial.theme);
-            }
-          }}
-          onClose={() => setShowSettings(false)}
+          onUpdate={handleSettingsUpdate}
+          onClose={handleSettingsClose}
         />
       )}
     </div>
