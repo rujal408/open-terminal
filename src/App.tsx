@@ -35,6 +35,28 @@ function AppContent() {
   const insertTextRef = useRef<((text: string) => void) | null>(null);
   const { settings, updateSettings } = useSettings();
   const [showSettings, setShowSettings] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(250);
+  const resizingRef = useRef(false);
+
+  function handleResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    resizingRef.current = true;
+
+    function handleMouseMove(e: MouseEvent) {
+      if (!resizingRef.current) return;
+      const newWidth = Math.max(150, Math.min(500, e.clientX));
+      setSidebarWidth(newWidth);
+    }
+
+    function handleMouseUp() {
+      resizingRef.current = false;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
 
   const handleNew = useCallback(() => {
     const ws = createWorkspace();
@@ -103,20 +125,23 @@ function AppContent() {
           <WelcomeScreen onOpenProject={handleOpenProject} />
         ) : (
           <div className="workspace-content">
-            <FileTree
-              projectPath={activeWorkspace.projectPath!}
-              onFileClick={async (path) => {
-                const updated = await openEditorPanel(
-                  path,
-                  activeWorkspace.openEditors
-                );
-                setWorkspaces((prev) =>
-                  prev.map((ws) =>
-                    ws.id === activeId ? { ...ws, openEditors: updated } : ws
-                  )
-                );
-              }}
-            />
+            <div style={{ width: sidebarWidth, flexShrink: 0 }}>
+              <FileTree
+                projectPath={activeWorkspace.projectPath!}
+                onFileClick={async (path) => {
+                  const updated = await openEditorPanel(
+                    path,
+                    activeWorkspace.openEditors
+                  );
+                  setWorkspaces((prev) =>
+                    prev.map((ws) =>
+                      ws.id === activeId ? { ...ws, openEditors: updated } : ws
+                    )
+                  );
+                }}
+              />
+            </div>
+            <div className="resize-handle" onMouseDown={handleResizeStart} />
             <div className="terminal-and-editors">
               <TerminalView
                 key={activeWorkspace.ptyId}

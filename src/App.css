@@ -194,10 +194,9 @@ html, body, #root {
 
 /* File Tree */
 .file-tree {
-  width: 250px;
-  min-width: 150px;
+  width: 100%;
+  height: 100%;
   background: var(--sidebar);
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -448,4 +447,16 @@ html, body, #root {
   border-radius: 4px;
   font-size: 13px;
   width: 160px;
+}
+
+.resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover {
+  background: var(--accent);
 }
