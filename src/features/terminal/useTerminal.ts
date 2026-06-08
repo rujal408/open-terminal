@@ -189,5 +189,9 @@ export function useTerminal({
     [ptyId]
   );
 
-  return { attach, insertText };
+  const focus = useCallback(() => {
+    termRef.current?.focus();
+  }, []);
+
+  return { attach, insertText, focus };
 }

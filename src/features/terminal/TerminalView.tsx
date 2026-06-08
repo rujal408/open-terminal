@@ -26,7 +26,7 @@ export function TerminalView({
 }: TerminalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const { attach, insertText } = useTerminal({
+  const { attach, insertText, focus } = useTerminal({
     ptyId,
     cwd,
     theme,
@@ -76,6 +76,7 @@ export function TerminalView({
     }
 
     insertText(path);
+    focus();
   }
 
   return (
