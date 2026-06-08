@@ -7,9 +7,6 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "dialog:allow-open",
-    "event:default",
-    "event:allow-listen",
-    "event:allow-emit"
+    "dialog:allow-open"
   ]
 }
