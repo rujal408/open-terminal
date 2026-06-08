@@ -1,0 +1,59 @@
+import type { Theme } from "../../types";
+
+export const darkTheme: Theme = {
+  name: "Dark",
+  type: "dark",
+  colors: {
+    background: "#1e1e2e",
+    sidebar: "#181825",
+    tabBar: "#11111b",
+    tabActive: "#1e1e2e",
+    tabInactive: "#181825",
+    border: "#313244",
+    text: "#cdd6f4",
+    textMuted: "#6c7086",
+    accent: "#89b4fa",
+    terminalBg: "#1e1e2e",
+    terminalFg: "#cdd6f4",
+    terminalCursor: "#f5e0dc",
+    ansi: [
+      "#45475a", "#f38ba8", "#a6e3a1", "#f9e2af",
+      "#89b4fa", "#cba6f7", "#94e2d5", "#bac2de",
+      "#585b70", "#f38ba8", "#a6e3a1", "#f9e2af",
+      "#89b4fa", "#cba6f7", "#94e2d5", "#a6adc8",
+    ],
+    editorBg: "#1e1e2e",
+    editorFg: "#cdd6f4",
+    editorLineNumber: "#6c7086",
+    editorSelection: "#313244",
+  },
+};
+
+export const lightTheme: Theme = {
+  name: "Light",
+  type: "light",
+  colors: {
+    background: "#eff1f5",
+    sidebar: "#e6e9ef",
+    tabBar: "#dce0e8",
+    tabActive: "#eff1f5",
+    tabInactive: "#e6e9ef",
+    border: "#ccd0da",
+    text: "#4c4f69",
+    textMuted: "#8c8fa1",
+    accent: "#1e66f5",
+    terminalBg: "#eff1f5",
+    terminalFg: "#4c4f69",
+    terminalCursor: "#dc8a78",
+    ansi: [
+      "#bcc0cc", "#d20f39", "#40a02b", "#df8e1d",
+      "#1e66f5", "#8839ef", "#179299", "#5c5f77",
+      "#acb0be", "#d20f39", "#40a02b", "#df8e1d",
+      "#1e66f5", "#8839ef", "#179299", "#6c6f85",
+    ],
+    editorBg: "#eff1f5",
+    editorFg: "#4c4f69",
+    editorLineNumber: "#8c8fa1",
+    editorSelection: "#ccd0da",
+  },
+};
