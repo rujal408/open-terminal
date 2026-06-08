@@ -2,7 +2,6 @@ use parking_lot::Mutex;
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager};
 
 struct PtySession {
