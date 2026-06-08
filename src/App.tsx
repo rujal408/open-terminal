@@ -1,51 +1,110 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { v4 as uuidv4 } from "uuid";
+import { ThemeProvider } from "./features/theme/ThemeProvider";
+import { TabBar } from "./features/tabs/TabBar";
+import { WelcomeScreen } from "./features/tabs/WelcomeScreen";
+import type { Workspace } from "./types";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+function createWorkspace(): Workspace {
+  const id = uuidv4();
+  return {
+    id,
+    projectPath: null,
+    label: "New Tab",
+    ptyId: id,
+    openEditors: [],
+  };
+}
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+function AppContent() {
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => [
+    createWorkspace(),
+  ]);
+  const [activeId, setActiveId] = useState<string>(workspaces[0].id);
+
+  const activeWorkspace = workspaces.find((ws) => ws.id === activeId)!;
+
+  const handleNew = useCallback(() => {
+    const ws = createWorkspace();
+    setWorkspaces((prev) => [...prev, ws]);
+    setActiveId(ws.id);
+  }, []);
+
+  const handleClose = useCallback(
+    (id: string) => {
+      invoke("kill_pty", { ptyId: id }).catch(() => {});
+      setWorkspaces((prev) => {
+        const next = prev.filter((ws) => ws.id !== id);
+        if (next.length === 0) {
+          const ws = createWorkspace();
+          setActiveId(ws.id);
+          return [ws];
+        }
+        if (id === activeId) {
+          setActiveId(next[next.length - 1].id);
+        }
+        return next;
+      });
+    },
+    [activeId]
+  );
+
+  const handleReorder = useCallback((from: number, to: number) => {
+    setWorkspaces((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const handleOpenProject = useCallback(
+    async (path: string) => {
+      const name = path.split("/").pop() || path;
+      await invoke("add_recent_project", { projectPath: path, name });
+      setWorkspaces((prev) =>
+        prev.map((ws) =>
+          ws.id === activeId ? { ...ws, projectPath: path, label: name } : ws
+        )
+      );
+    },
+    [activeId]
+  );
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="app">
+      <TabBar
+        workspaces={workspaces}
+        activeId={activeId}
+        onSelect={setActiveId}
+        onClose={handleClose}
+        onNew={handleNew}
+        onReorder={handleReorder}
+      />
+      <div className="workspace-area">
+        {activeWorkspace.projectPath === null ? (
+          <WelcomeScreen onOpenProject={handleOpenProject} />
+        ) : (
+          <div className="workspace-content">
+            <div className="sidebar-placeholder">
+              File Tree: {activeWorkspace.projectPath}
+            </div>
+            <div className="terminal-placeholder">
+              Terminal: {activeWorkspace.ptyId}
+            </div>
+          </div>
+        )}
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    </div>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
