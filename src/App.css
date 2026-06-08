@@ -291,10 +291,31 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  resize: both;
-  min-width: 300px;
-  min-height: 200px;
 }
+
+/* Resize edges */
+.resize-edge {
+  position: absolute;
+  z-index: 1;
+}
+
+.resize-n { top: -3px; left: 8px; right: 8px; height: 6px; cursor: n-resize; }
+.resize-s { bottom: -3px; left: 8px; right: 8px; height: 6px; cursor: s-resize; }
+.resize-e { right: -3px; top: 8px; bottom: 8px; width: 6px; cursor: e-resize; }
+.resize-w { left: -3px; top: 8px; bottom: 8px; width: 6px; cursor: w-resize; }
+
+/* Resize corners */
+.resize-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  z-index: 2;
+}
+
+.resize-nw { top: -3px; left: -3px; cursor: nw-resize; }
+.resize-ne { top: -3px; right: -3px; cursor: ne-resize; }
+.resize-sw { bottom: -3px; left: -3px; cursor: sw-resize; }
+.resize-se { bottom: -3px; right: -3px; cursor: se-resize; }
 
 .editor-title-bar {
   display: flex;

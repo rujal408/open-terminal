@@ -36,6 +36,8 @@ function languageFromPath(path: string) {
   }
 }
 
+type ResizeEdge = "e" | "s" | "w" | "n" | "se" | "sw" | "ne" | "nw";
+
 interface EditorPopoverProps {
   panel: EditorPanel;
   theme: Theme;
@@ -44,6 +46,9 @@ interface EditorPopoverProps {
   onFocus: (id: string) => void;
   zIndex: number;
 }
+
+const MIN_WIDTH = 250;
+const MIN_HEIGHT = 150;
 
 export function EditorPopover({
   panel,
@@ -57,9 +62,11 @@ export function EditorPopover({
   const viewRef = useRef<EditorView | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [position, setPosition] = useState(panel.position);
-  const [size] = useState(panel.size);
+  const [size, setSize] = useState(panel.size);
   const draggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
 
   const fileName = panel.filePath.split("/").pop() || "";
 
@@ -73,7 +80,7 @@ export function EditorPopover({
       EditorView.updateListener.of((update: ViewUpdate) => {
         if (update.docChanged) {
           setIsDirty(true);
-          onDirtyChange(panel.id, true);
+          onDirtyChangeRef.current(panel.id, true);
         }
       }),
     ].flat();
@@ -100,8 +107,8 @@ export function EditorPopover({
     const content = viewRef.current.state.doc.toString();
     await invoke("write_file", { path: panel.filePath, content });
     setIsDirty(false);
-    onDirtyChange(panel.id, false);
-  }, [panel.id, panel.filePath, onDirtyChange]);
+    onDirtyChangeRef.current(panel.id, false);
+  }, [panel.id, panel.filePath]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -131,7 +138,8 @@ export function EditorPopover({
     onClose(panel.id);
   }
 
-  function handleMouseDown(e: React.MouseEvent) {
+  // Title bar drag (move)
+  function handleTitleMouseDown(e: React.MouseEvent) {
     if ((e.target as HTMLElement).closest(".editor-close")) return;
     draggingRef.current = true;
     dragOffsetRef.current = {
@@ -157,6 +165,50 @@ export function EditorPopover({
     document.addEventListener("mouseup", handleMouseUp);
   }
 
+  // Edge/corner resize
+  function handleResizeStart(e: React.MouseEvent, edge: ResizeEdge) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = size.width;
+    const startH = size.height;
+    const startLeft = position.x;
+    const startTop = position.y;
+
+    function handleMouseMove(e: MouseEvent) {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      let newW = startW;
+      let newH = startH;
+      let newX = startLeft;
+      let newY = startTop;
+
+      if (edge.includes("e")) newW = Math.max(MIN_WIDTH, startW + dx);
+      if (edge.includes("s")) newH = Math.max(MIN_HEIGHT, startH + dy);
+      if (edge.includes("w")) {
+        newW = Math.max(MIN_WIDTH, startW - dx);
+        if (newW > MIN_WIDTH) newX = startLeft + dx;
+      }
+      if (edge.includes("n")) {
+        newH = Math.max(MIN_HEIGHT, startH - dy);
+        if (newH > MIN_HEIGHT) newY = startTop + dy;
+      }
+
+      setSize({ width: newW, height: newH });
+      setPosition({ x: newX, y: newY });
+    }
+
+    function handleMouseUp() {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
+
   return (
     <div
       className="editor-popover"
@@ -169,7 +221,18 @@ export function EditorPopover({
       }}
       onMouseDown={() => onFocus(panel.id)}
     >
-      <div className="editor-title-bar" onMouseDown={handleMouseDown}>
+      {/* Resize handles — edges */}
+      <div className="resize-edge resize-n" onMouseDown={(e) => handleResizeStart(e, "n")} />
+      <div className="resize-edge resize-s" onMouseDown={(e) => handleResizeStart(e, "s")} />
+      <div className="resize-edge resize-e" onMouseDown={(e) => handleResizeStart(e, "e")} />
+      <div className="resize-edge resize-w" onMouseDown={(e) => handleResizeStart(e, "w")} />
+      {/* Resize handles — corners */}
+      <div className="resize-corner resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
+      <div className="resize-corner resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
+      <div className="resize-corner resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
+      <div className="resize-corner resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
+
+      <div className="editor-title-bar" onMouseDown={handleTitleMouseDown}>
         <span className="editor-filename">
           {isDirty && <span className="editor-dirty">●</span>}
           {fileName}
