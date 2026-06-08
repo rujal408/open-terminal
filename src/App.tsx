@@ -8,6 +8,7 @@ import { WelcomeScreen } from "./features/tabs/WelcomeScreen";
 import { TerminalView } from "./features/terminal/TerminalView";
 import type { Workspace } from "./types";
 import { FileTree } from "./features/file-tree/FileTree";
+import { EditorManager, openEditorPanel } from "./features/editor/EditorManager";
 import "./App.css";
 
 function createWorkspace(): Workspace {
@@ -95,22 +96,43 @@ function AppContent() {
           <div className="workspace-content">
             <FileTree
               projectPath={activeWorkspace.projectPath!}
-              onFileClick={(path) => {
-                console.log("Open file:", path);
+              onFileClick={async (path) => {
+                const updated = await openEditorPanel(
+                  path,
+                  activeWorkspace.openEditors
+                );
+                setWorkspaces((prev) =>
+                  prev.map((ws) =>
+                    ws.id === activeId ? { ...ws, openEditors: updated } : ws
+                  )
+                );
               }}
             />
-            <TerminalView
-              key={activeWorkspace.ptyId}
-              ptyId={activeWorkspace.ptyId}
-              cwd={activeWorkspace.projectPath!}
-              theme={theme}
-              fontSize={14}
-              scrollback={5000}
-              shell={null}
-              onInsertText={(fn) => {
-                insertTextRef.current = fn;
-              }}
-            />
+            <div className="terminal-and-editors">
+              <TerminalView
+                key={activeWorkspace.ptyId}
+                ptyId={activeWorkspace.ptyId}
+                cwd={activeWorkspace.projectPath!}
+                theme={theme}
+                fontSize={14}
+                scrollback={5000}
+                shell={null}
+                onInsertText={(fn) => {
+                  insertTextRef.current = fn;
+                }}
+              />
+              <EditorManager
+                editors={activeWorkspace.openEditors}
+                theme={theme}
+                onEditorsChange={(editors) => {
+                  setWorkspaces((prev) =>
+                    prev.map((ws) =>
+                      ws.id === activeId ? { ...ws, openEditors: editors } : ws
+                    )
+                  );
+                }}
+              />
+            </div>
           </div>
         )}
       </div>
