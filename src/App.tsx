@@ -1,9 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import { ThemeProvider } from "./features/theme/ThemeProvider";
+import { useThemeContext } from "./features/theme/ThemeProvider";
 import { TabBar } from "./features/tabs/TabBar";
 import { WelcomeScreen } from "./features/tabs/WelcomeScreen";
+import { TerminalView } from "./features/terminal/TerminalView";
 import type { Workspace } from "./types";
 import "./App.css";
 
@@ -25,6 +27,8 @@ function AppContent() {
   const [activeId, setActiveId] = useState<string>(workspaces[0].id);
 
   const activeWorkspace = workspaces.find((ws) => ws.id === activeId)!;
+  const { theme } = useThemeContext();
+  const insertTextRef = useRef<((text: string) => void) | null>(null);
 
   const handleNew = useCallback(() => {
     const ws = createWorkspace();
@@ -91,9 +95,18 @@ function AppContent() {
             <div className="sidebar-placeholder">
               File Tree: {activeWorkspace.projectPath}
             </div>
-            <div className="terminal-placeholder">
-              Terminal: {activeWorkspace.ptyId}
-            </div>
+            <TerminalView
+              key={activeWorkspace.ptyId}
+              ptyId={activeWorkspace.ptyId}
+              cwd={activeWorkspace.projectPath!}
+              theme={theme}
+              fontSize={14}
+              scrollback={5000}
+              shell={null}
+              onInsertText={(fn) => {
+                insertTextRef.current = fn;
+              }}
+            />
           </div>
         )}
       </div>
