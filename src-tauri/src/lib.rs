@@ -1,3 +1,4 @@
+mod file_watcher;
 mod filesystem;
 mod pty_manager;
 mod settings;
@@ -8,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(pty_manager::PtyState::new())
+        .manage(file_watcher::WatcherState::new())
         .invoke_handler(tauri::generate_handler![
             settings::load_settings,
             settings::save_settings,
@@ -26,6 +28,8 @@ pub fn run() {
             pty_manager::resize_pty,
             pty_manager::get_scrollback,
             pty_manager::kill_pty,
+            file_watcher::watch_directory,
+            file_watcher::unwatch_directory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { FileTreeNode } from "./FileTreeNode";
 import { ContextMenu } from "./ContextMenu";
 import type { DirEntry } from "../../types";
@@ -7,24 +8,56 @@ import type { MenuItem } from "./ContextMenu";
 
 interface FileTreeProps {
   projectPath: string;
+  workspaceId: string;
   onFileClick: (path: string) => void;
 }
 
-export const FileTree = memo(function FileTree({ projectPath, onFileClick }: FileTreeProps) {
+interface FsChangeEvent {
+  path: string;
+  parent: string;
+}
+
+export const FileTree = memo(function FileTree({
+  projectPath,
+  workspaceId,
+  onFileClick,
+}: FileTreeProps) {
   const [entries, setEntries] = useState<DirEntry[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     items: MenuItem[];
   } | null>(null);
 
+  // Load root entries
   useEffect(() => {
     invoke<DirEntry[]>("list_directory", { path: projectPath }).then(
       (result) => {
         setEntries(result.filter((e) => !e.is_hidden));
       }
     );
-  }, [projectPath]);
+  }, [projectPath, refreshKey]);
+
+  // Start filesystem watcher and listen for changes
+  useEffect(() => {
+    invoke("watch_directory", { workspaceId, path: projectPath }).catch(
+      (err) => console.warn("Failed to start file watcher:", err)
+    );
+
+    const unlisten = listen<FsChangeEvent>("fs-changed", (event) => {
+      const { parent } = event.payload;
+      // If the changed file's parent is the project root, refresh root entries
+      if (parent === projectPath) {
+        setRefreshKey((k) => k + 1);
+      }
+    });
+
+    return () => {
+      invoke("unwatch_directory", { workspaceId }).catch(() => {});
+      unlisten.then((fn) => fn());
+    };
+  }, [projectPath, workspaceId]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, items: MenuItem[]) => {

@@ -28,4 +28,6 @@ parking_lot = "0.12"
 trash = "5"
 dirs = "6"
 tauri-plugin-dialog = "2"
+notify = { version = "7", features = ["macos_fsevent"] }
+notify-debouncer-mini = "0.5"
 

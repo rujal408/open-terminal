@@ -1,7 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { DirEntry } from "../../types";
 import type { MenuItem } from "./ContextMenu";
+
+interface FsChangeEvent {
+  path: string;
+  parent: string;
+}
 
 interface FileTreeNodeProps {
   entry: DirEntry;
@@ -21,13 +27,36 @@ export function FileTreeNode({
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<DirEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
+
+  // Watch for filesystem changes in this directory
+  useEffect(() => {
+    if (!entry.is_dir) return;
+
+    const unlisten = listen<FsChangeEvent>("fs-changed", (event) => {
+      // If a change happened inside this directory, refresh children
+      if (event.payload.parent === entry.path && expandedRef.current) {
+        invoke<DirEntry[]>("list_directory", { path: entry.path }).then(
+          (result) => {
+            setChildren(result.filter((e) => !e.is_hidden));
+          }
+        );
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [entry.path, entry.is_dir]);
 
   const toggle = useCallback(async () => {
     if (!entry.is_dir) {
       onFileClick(entry.path);
       return;
     }
-    if (!loaded) {
+    if (!loaded || !expanded) {
+      // Always re-fetch when expanding (covers both first load and refresh)
       const entries = await invoke<DirEntry[]>("list_directory", {
         path: entry.path,
       });
@@ -35,7 +64,7 @@ export function FileTreeNode({
       setLoaded(true);
     }
     setExpanded((prev) => !prev);
-  }, [entry, loaded, onFileClick]);
+  }, [entry, loaded, expanded, onFileClick]);
 
   function handleDragStart(e: React.DragEvent) {
     if (entry.is_dir) return;
@@ -54,13 +83,19 @@ export function FileTreeNode({
           { label: "New Folder", action: () => promptCreate(entry.path, true) },
           { label: "Rename", action: () => promptRename(entry.path) },
           { label: "Delete", action: () => handleDelete(entry.path) },
-          { label: "Copy Path", action: () => navigator.clipboard.writeText(entry.path) },
+          {
+            label: "Copy Path",
+            action: () => navigator.clipboard.writeText(entry.path),
+          },
         ]
       : [
           { label: "Open", action: () => onFileClick(entry.path) },
           { label: "Rename", action: () => promptRename(entry.path) },
           { label: "Delete", action: () => handleDelete(entry.path) },
-          { label: "Copy Path", action: () => navigator.clipboard.writeText(entry.path) },
+          {
+            label: "Copy Path",
+            action: () => navigator.clipboard.writeText(entry.path),
+          },
           {
             label: "Copy Relative Path",
             action: () =>
@@ -115,9 +150,10 @@ function promptRename(oldPath: string) {
   const newName = window.prompt("New name:", oldName);
   if (!newName || newName === oldName) return;
   const parentDir = oldPath.substring(0, oldPath.lastIndexOf("/"));
-  invoke("rename_entry", { oldPath, newPath: `${parentDir}/${newName}` }).catch(
-    (e) => alert(e)
-  );
+  invoke("rename_entry", {
+    oldPath,
+    newPath: `${parentDir}/${newName}`,
+  }).catch((e) => alert(e));
 }
 
 function handleDelete(path: string) {

@@ -63,6 +63,7 @@ export const WorkspaceView = memo(function WorkspaceView({
       <div style={{ width: sidebarWidth, flexShrink: 0 }}>
         <FileTree
           projectPath={workspace.projectPath!}
+          workspaceId={workspace.id}
           onFileClick={handleFileClick}
         />
       </div>
