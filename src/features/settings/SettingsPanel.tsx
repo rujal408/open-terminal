@@ -12,19 +12,29 @@ export function SettingsPanel({
   onClose,
 }: SettingsPanelProps) {
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-header">
-          <h2>Settings</h2>
-          <button className="settings-close" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[500]"
+      onClick={onClose}
+    >
+      <div
+        className="bg-[var(--bg)] border border-[var(--border)] rounded-lg w-[400px] max-h-[80vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+          <h2 className="text-base font-semibold">Settings</h2>
+          <button
+            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-lg hover:text-[var(--text)]"
+            onClick={onClose}
+          >
             ×
           </button>
         </div>
 
-        <div className="settings-body">
-          <label className="settings-row">
+        <div className="p-4 flex flex-col gap-4">
+          <label className="flex items-center justify-between text-sm">
             <span>Theme</span>
             <select
+              className="bg-[var(--sidebar)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded text-[13px] w-40"
               value={settings.theme}
               onChange={(e) => onUpdate({ theme: e.target.value })}
             >
@@ -33,9 +43,10 @@ export function SettingsPanel({
             </select>
           </label>
 
-          <label className="settings-row">
-            <span>Drag &amp; Drop Path</span>
+          <label className="flex items-center justify-between text-sm">
+            <span>Drag & Drop Path</span>
             <select
+              className="bg-[var(--sidebar)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded text-[13px] w-40"
               value={settings.drag_drop_path_mode}
               onChange={(e) =>
                 onUpdate({
@@ -48,9 +59,10 @@ export function SettingsPanel({
             </select>
           </label>
 
-          <label className="settings-row">
+          <label className="flex items-center justify-between text-sm">
             <span>Font Size</span>
             <input
+              className="bg-[var(--sidebar)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded text-[13px] w-40"
               type="number"
               min={10}
               max={24}
@@ -61,9 +73,10 @@ export function SettingsPanel({
             />
           </label>
 
-          <label className="settings-row">
+          <label className="flex items-center justify-between text-sm">
             <span>Scrollback Lines</span>
             <input
+              className="bg-[var(--sidebar)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded text-[13px] w-40"
               type="number"
               min={1000}
               max={50000}
@@ -75,9 +88,10 @@ export function SettingsPanel({
             />
           </label>
 
-          <label className="settings-row">
+          <label className="flex items-center justify-between text-sm">
             <span>Default Shell</span>
             <input
+              className="bg-[var(--sidebar)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded text-[13px] w-40"
               type="text"
               placeholder="Auto-detect"
               value={settings.default_shell || ""}

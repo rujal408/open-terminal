@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { RecentProject } from "../../types";
+
 
 interface WelcomeScreenProps {
   onOpenProject: (path: string) => void;
@@ -10,9 +11,9 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onOpenProject }: WelcomeScreenProps) {
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
 
-  useEffect(() => {
+  useState(() => {
     invoke<RecentProject[]>("load_recent_projects").then(setRecentProjects);
-  }, []);
+  });
 
   async function handleOpenFolder() {
     const selected = await open({ directory: true, multiple: false });
@@ -27,29 +28,43 @@ export function WelcomeScreen({ onOpenProject }: WelcomeScreenProps) {
   }
 
   return (
-    <div className="welcome-screen">
-      <h1>Open Terminal</h1>
-      <p className="welcome-subtitle">Select a project to get started</p>
+    <div className="flex flex-col items-center justify-center h-full gap-4">
+      <h1 className="text-2xl font-semibold text-[var(--text)]">
+        Open Terminal
+      </h1>
+      <p className="text-[var(--text-muted)]">
+        Select a project to get started
+      </p>
 
-      <button className="welcome-open-btn" onClick={handleOpenFolder}>
+      <button
+        className="px-6 py-2.5 bg-[var(--accent)] text-white border-none rounded-md cursor-pointer text-sm hover:opacity-90"
+        onClick={handleOpenFolder}
+      >
         Open Folder
       </button>
 
       {recentProjects.length > 0 && (
-        <div className="recent-projects">
-          <h3>Recent Projects</h3>
-          <ul>
+        <div className="mt-6 w-[400px]">
+          <h3 className="mb-2 text-[13px] text-[var(--text-muted)] uppercase tracking-wide font-semibold">
+            Recent Projects
+          </h3>
+          <ul className="list-none">
             {recentProjects.map((project) => (
-              <li key={project.path}>
+              <li
+                key={project.path}
+                className="flex items-center border-b border-[var(--border)]"
+              >
                 <button
-                  className="recent-project-btn"
+                  className="flex-1 flex flex-col py-2 bg-transparent border-none cursor-pointer text-left text-[var(--text)] hover:text-[var(--accent)]"
                   onClick={() => onOpenProject(project.path)}
                 >
-                  <span className="recent-name">{project.name}</span>
-                  <span className="recent-path">{project.path}</span>
+                  <span className="text-sm">{project.name}</span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    {project.path}
+                  </span>
                 </button>
                 <button
-                  className="recent-remove"
+                  className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer px-2 py-1 text-sm hover:text-[var(--text)]"
                   onClick={() => handleRemoveRecent(project.path)}
                 >
                   ×

@@ -59,7 +59,7 @@ export const WorkspaceView = memo(function WorkspaceView({
   );
 
   return (
-    <div className="workspace-content">
+    <div className="flex h-full">
       <div style={{ width: sidebarWidth, flexShrink: 0 }}>
         <FileTree
           projectPath={workspace.projectPath!}
@@ -67,8 +67,11 @@ export const WorkspaceView = memo(function WorkspaceView({
           onFileClick={handleFileClick}
         />
       </div>
-      <div className="resize-handle" onMouseDown={handleResizeStart} />
-      <div className="terminal-and-editors">
+      <div
+        className="w-1 shrink-0 cursor-col-resize bg-[var(--border)] transition-colors duration-150 hover:bg-[var(--accent)]"
+        onMouseDown={handleResizeStart}
+      />
+      <div className="flex-1 relative overflow-hidden">
         <TerminalView
           key={workspace.ptyId}
           ptyId={workspace.ptyId}

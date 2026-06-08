@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { FileIcon } from "./FileIcon";
 import type { DirEntry } from "../../types";
 import type { MenuItem } from "./ContextMenu";
 
@@ -30,12 +31,10 @@ export function FileTreeNode({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  // Watch for filesystem changes in this directory
   useEffect(() => {
     if (!entry.is_dir) return;
 
     const unlisten = listen<FsChangeEvent>("fs-changed", (event) => {
-      // If a change happened inside this directory, refresh children
       if (event.payload.parent === entry.path && expandedRef.current) {
         invoke<DirEntry[]>("list_directory", { path: entry.path }).then(
           (result) => {
@@ -56,7 +55,6 @@ export function FileTreeNode({
       return;
     }
     if (!loaded || !expanded) {
-      // Always re-fetch when expanding (covers both first load and refresh)
       const entries = await invoke<DirEntry[]>("list_directory", {
         path: entry.path,
       });
@@ -110,17 +108,17 @@ export function FileTreeNode({
   return (
     <>
       <div
-        className={`tree-node ${entry.is_dir ? "tree-dir" : "tree-file"}`}
+        className="flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-[var(--text)] hover:bg-[var(--border)]"
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={toggle}
         onContextMenu={handleRightClick}
         draggable={!entry.is_dir}
         onDragStart={handleDragStart}
       >
-        <span className="tree-icon">
-          {entry.is_dir ? (expanded ? "▾" : "▸") : ""}
+        <FileIcon name={entry.name} isDir={entry.is_dir} expanded={expanded} />
+        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+          {entry.name}
         </span>
-        <span className="tree-name">{entry.name}</span>
       </div>
       {expanded &&
         children.map((child) => (

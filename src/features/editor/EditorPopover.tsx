@@ -10,6 +10,7 @@ import { html } from "@codemirror/lang-html";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { invoke } from "@tauri-apps/api/core";
+import { FileIcon } from "../file-tree/FileIcon";
 import type { EditorPanel, Theme } from "../../types";
 
 function languageFromPath(path: string) {
@@ -64,7 +65,10 @@ export function EditorPopover({
   const [position, setPosition] = useState(panel.position);
   const [size, setSize] = useState(panel.size);
   const [maximized, setMaximized] = useState(false);
-  const preMaxRef = useRef<{ position: typeof panel.position; size: typeof panel.size } | null>(null);
+  const preMaxRef = useRef<{
+    position: typeof panel.position;
+    size: typeof panel.size;
+  } | null>(null);
   const draggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const onDirtyChangeRef = useRef(onDirtyChange);
@@ -140,9 +144,8 @@ export function EditorPopover({
     onClose(panel.id);
   }
 
-  // Title bar drag (move)
   function handleTitleMouseDown(e: React.MouseEvent) {
-    if ((e.target as HTMLElement).closest(".editor-close")) return;
+    if ((e.target as HTMLElement).closest("[data-close]")) return;
     draggingRef.current = true;
     dragOffsetRef.current = {
       x: e.clientX - position.x,
@@ -167,7 +170,6 @@ export function EditorPopover({
     document.addEventListener("mouseup", handleMouseUp);
   }
 
-  // Edge/corner resize
   function handleResizeStart(e: React.MouseEvent, edge: ResizeEdge) {
     e.preventDefault();
     e.stopPropagation();
@@ -213,7 +215,6 @@ export function EditorPopover({
 
   function handleToggleMaximize() {
     if (maximized) {
-      // Restore
       if (preMaxRef.current) {
         setPosition(preMaxRef.current.position);
         setSize(preMaxRef.current.size);
@@ -221,56 +222,73 @@ export function EditorPopover({
       preMaxRef.current = null;
       setMaximized(false);
     } else {
-      // Save current and maximize
       preMaxRef.current = { position, size };
       setPosition({ x: 0, y: 0 });
-      setSize({ width: 99999, height: 99999 }); // clamped by 100% in CSS
+      setSize({ width: 99999, height: 99999 });
       setMaximized(true);
     }
   }
 
   return (
     <div
-      className={`editor-popover ${maximized ? "editor-maximized" : ""}`}
+      className={`absolute bg-[var(--editor-bg,var(--bg))] border border-[var(--border)] flex flex-col overflow-hidden shadow-2xl ${
+        maximized ? "rounded-none" : "rounded-lg"
+      }`}
       style={
         maximized
           ? { left: 0, top: 0, width: "100%", height: "100%", zIndex }
-          : { left: position.x, top: position.y, width: size.width, height: size.height, zIndex }
+          : {
+              left: position.x,
+              top: position.y,
+              width: size.width,
+              height: size.height,
+              zIndex,
+            }
       }
       onMouseDown={() => onFocus(panel.id)}
     >
-      {/* Resize handles — only when not maximized */}
       {!maximized && (
         <>
           <div className="resize-edge resize-n" onMouseDown={(e) => handleResizeStart(e, "n")} />
           <div className="resize-edge resize-s" onMouseDown={(e) => handleResizeStart(e, "s")} />
           <div className="resize-edge resize-e" onMouseDown={(e) => handleResizeStart(e, "e")} />
           <div className="resize-edge resize-w" onMouseDown={(e) => handleResizeStart(e, "w")} />
-          <div className="resize-corner resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
-          <div className="resize-corner resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
-          <div className="resize-corner resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
-          <div className="resize-corner resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
+          <div className="absolute w-3 h-3 z-[2] resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
+          <div className="absolute w-3 h-3 z-[2] resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
+          <div className="absolute w-3 h-3 z-[2] resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
+          <div className="absolute w-3 h-3 z-[2] resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
         </>
       )}
-      <div className="editor-title-bar" onMouseDown={maximized ? undefined : handleTitleMouseDown}>
-        <span className="editor-filename">
-          {isDirty && <span className="editor-dirty">●</span>}
+
+      <div
+        className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--tab-bar)] border-b border-[var(--border)] cursor-grab active:cursor-grabbing select-none text-[13px]"
+        onMouseDown={maximized ? undefined : handleTitleMouseDown}
+      >
+        <span className="flex items-center gap-1.5 text-[var(--text)]">
+          {isDirty && (
+            <span className="text-[var(--accent)] text-[10px]">●</span>
+          )}
+          <FileIcon name={fileName} isDir={false} />
           {fileName}
         </span>
-        <div className="editor-actions">
+        <div className="flex items-center gap-1">
           <button
-            className="editor-action-btn"
+            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm px-1 leading-none hover:text-[var(--text)]"
             onClick={handleToggleMaximize}
             title={maximized ? "Restore" : "Maximize"}
           >
             {maximized ? "◱" : "◳"}
           </button>
-          <button className="editor-action-btn editor-close" onClick={handleClose}>
+          <button
+            data-close
+            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm px-1 leading-none hover:text-[#f38ba8]"
+            onClick={handleClose}
+          >
             ×
           </button>
         </div>
       </div>
-      <div ref={editorContainerRef} className="editor-body" />
+      <div ref={editorContainerRef} className="editor-body flex-1 overflow-auto" />
     </div>
   );
 }

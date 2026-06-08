@@ -80,14 +80,11 @@ function AppContent() {
     [activeId]
   );
 
-  const handleWorkspaceChange = useCallback(
-    (updated: Workspace) => {
-      setWorkspaces((prev) =>
-        prev.map((ws) => (ws.id === updated.id ? updated : ws))
-      );
-    },
-    []
-  );
+  const handleWorkspaceChange = useCallback((updated: Workspace) => {
+    setWorkspaces((prev) =>
+      prev.map((ws) => (ws.id === updated.id ? updated : ws))
+    );
+  }, []);
 
   const handleSettingsUpdate = useCallback(
     (partial: Partial<typeof settings>) => {
@@ -103,8 +100,8 @@ function AppContent() {
   const handleSettingsOpen = useCallback(() => setShowSettings(true), []);
 
   return (
-    <div className="app">
-      <div className="top-bar">
+    <div className="flex flex-col h-full">
+      <div className="flex items-center bg-[var(--tab-bar)] border-b border-[var(--border)] h-9 shrink-0">
         <TabBar
           workspaces={workspaces}
           activeId={activeId}
@@ -113,11 +110,14 @@ function AppContent() {
           onNew={handleNew}
           onReorder={handleReorder}
         />
-        <button className="settings-btn" onClick={handleSettingsOpen}>
+        <button
+          className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-base px-2.5 ml-auto h-full hover:text-[var(--text)]"
+          onClick={handleSettingsOpen}
+        >
           ⚙
         </button>
       </div>
-      <div className="workspace-area">
+      <div className="flex-1 overflow-hidden">
         {activeWorkspace.projectPath === null ? (
           <WelcomeScreen onOpenProject={handleOpenProject} />
         ) : (

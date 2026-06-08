@@ -35,20 +35,26 @@ export const TabBar = memo(function TabBar({
   }
 
   return (
-    <div className="tab-bar">
+    <div className="flex items-center h-full overflow-x-auto select-none flex-1">
       {workspaces.map((ws, i) => (
         <div
           key={ws.id}
-          className={`tab ${ws.id === activeId ? "tab-active" : ""}`}
+          className={`flex items-center gap-1.5 px-3 h-full border-r border-[var(--border)] cursor-pointer text-[13px] whitespace-nowrap ${
+            ws.id === activeId
+              ? "bg-[var(--tab-active)] text-[var(--text)]"
+              : "bg-[var(--tab-inactive)] text-[var(--text-muted)]"
+          }`}
           onClick={() => onSelect(ws.id)}
           draggable
           onDragStart={(e) => handleDragStart(e, i)}
           onDrop={(e) => handleDrop(e, i)}
           onDragOver={handleDragOver}
         >
-          <span className="tab-label">{ws.label}</span>
+          <span className="max-w-[150px] overflow-hidden text-ellipsis">
+            {ws.label}
+          </span>
           <button
-            className="tab-close"
+            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm px-0.5 leading-none hover:text-[var(--text)]"
             onClick={(e) => {
               e.stopPropagation();
               onClose(ws.id);
@@ -58,7 +64,10 @@ export const TabBar = memo(function TabBar({
           </button>
         </div>
       ))}
-      <button className="tab-new" onClick={onNew}>
+      <button
+        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-lg px-3 h-full hover:text-[var(--text)]"
+        onClick={onNew}
+      >
         +
       </button>
     </div>

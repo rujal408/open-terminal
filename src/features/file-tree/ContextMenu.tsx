@@ -28,13 +28,13 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return (
     <div
       ref={menuRef}
-      className="context-menu"
-      style={{ position: "fixed", left: x, top: y }}
+      className="fixed bg-[var(--sidebar)] border border-[var(--border)] rounded-md py-1 min-w-[160px] z-[1000] shadow-lg"
+      style={{ left: x, top: y }}
     >
       {items.map((item) => (
         <button
           key={item.label}
-          className="context-menu-item"
+          className="block w-full px-3 py-1.5 bg-transparent border-none text-[var(--text)] text-[13px] text-left cursor-pointer hover:bg-[var(--accent)] hover:text-white"
           onClick={() => {
             item.action();
             onClose();

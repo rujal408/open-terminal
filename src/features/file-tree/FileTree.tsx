@@ -30,7 +30,6 @@ export const FileTree = memo(function FileTree({
     items: MenuItem[];
   } | null>(null);
 
-  // Load root entries
   useEffect(() => {
     invoke<DirEntry[]>("list_directory", { path: projectPath }).then(
       (result) => {
@@ -39,7 +38,6 @@ export const FileTree = memo(function FileTree({
     );
   }, [projectPath, refreshKey]);
 
-  // Start filesystem watcher and listen for changes
   useEffect(() => {
     invoke("watch_directory", { workspaceId, path: projectPath }).catch(
       (err) => console.warn("Failed to start file watcher:", err)
@@ -47,7 +45,6 @@ export const FileTree = memo(function FileTree({
 
     const unlisten = listen<FsChangeEvent>("fs-changed", (event) => {
       const { parent } = event.payload;
-      // If the changed file's parent is the project root, refresh root entries
       if (parent === projectPath) {
         setRefreshKey((k) => k + 1);
       }
@@ -92,11 +89,14 @@ export const FileTree = memo(function FileTree({
   }
 
   return (
-    <div className="file-tree" onContextMenu={handleBackgroundContextMenu}>
-      <div className="file-tree-header">
-        <span>{projectPath.split("/").pop()}</span>
+    <div
+      className="w-full h-full bg-[var(--sidebar)] flex flex-col overflow-hidden select-none"
+      onContextMenu={handleBackgroundContextMenu}
+    >
+      <div className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide border-b border-[var(--border)]">
+        {projectPath.split("/").pop()}
       </div>
-      <div className="file-tree-list">
+      <div className="flex-1 overflow-y-auto py-1">
         {entries.map((entry) => (
           <FileTreeNode
             key={entry.path}
