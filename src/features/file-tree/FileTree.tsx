@@ -90,10 +90,10 @@ export const FileTree = memo(function FileTree({
 
   return (
     <div
-      className="w-full h-full bg-[var(--sidebar)] flex flex-col overflow-hidden select-none"
+      className="w-full h-full bg-sidebar flex flex-col overflow-hidden select-none"
       onContextMenu={handleBackgroundContextMenu}
     >
-      <div className="px-3 py-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide border-b border-[var(--border)]">
+      <div className="px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide border-b border-border">
         {projectPath.split("/").pop()}
       </div>
       <div className="flex-1 overflow-y-auto py-1">

@@ -70,7 +70,7 @@ export const WorkspaceView = memo(function WorkspaceView({
         />
       </div>
       <div
-        className="w-1 shrink-0 cursor-col-resize bg-[var(--border)] transition-colors duration-150 hover:bg-[var(--accent)]"
+        className="w-1 shrink-0 cursor-col-resize bg-border transition-colors duration-150 hover:bg-accent"
         onMouseDown={handleResizeStart}
       />
       <div className="flex-1 relative overflow-hidden">

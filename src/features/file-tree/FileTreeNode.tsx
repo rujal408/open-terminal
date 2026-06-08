@@ -108,7 +108,7 @@ export function FileTreeNode({
   return (
     <>
       <div
-        className="flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-[var(--text)] hover:bg-[var(--border)]"
+        className="flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-primary hover:bg-border"
         style={{ paddingLeft: depth * 16 + 8 }}
         onClick={toggle}
         onContextMenu={handleRightClick}

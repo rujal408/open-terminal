@@ -100,8 +100,8 @@ function AppContent() {
   const handleSettingsOpen = useCallback(() => setShowSettings(true), []);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center bg-[var(--tab-bar)] border-b border-[var(--border)] h-9 shrink-0">
+    <div className="flex flex-col h-full bg-app text-primary">
+      <div className="flex items-center bg-tab-bar border-b border-border h-9 shrink-0">
         <TabBar
           workspaces={workspaces}
           activeId={activeId}
@@ -111,19 +111,16 @@ function AppContent() {
           onReorder={handleReorder}
         />
         <button
-          className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-base px-2.5 ml-auto h-full hover:text-[var(--text)]"
+          className="bg-transparent border-none text-muted cursor-pointer text-base px-2.5 ml-auto h-full hover:text-primary"
           onClick={handleSettingsOpen}
         >
           ⚙
         </button>
       </div>
       <div className="flex-1 overflow-hidden relative">
-        {/* Welcome screen for active tab if no project */}
         {activeWorkspace.projectPath === null && (
           <WelcomeScreen onOpenProject={handleOpenProject} />
         )}
-
-        {/* Render ALL opened workspaces — hide inactive ones with display:none */}
         {workspaces
           .filter((ws) => ws.projectPath !== null)
           .map((ws) => (

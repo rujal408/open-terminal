@@ -1,19 +1,35 @@
 @import "tailwindcss";
 
-/* Base — Tailwind can't set these on html/body via utilities alone */
+@theme {
+  /* Semantic color tokens — values come from CSS custom properties set by ThemeProvider */
+  --color-app: var(--bg);
+  --color-sidebar: var(--sidebar);
+  --color-tab-bar: var(--tab-bar);
+  --color-tab-active: var(--tab-active);
+  --color-tab-inactive: var(--tab-inactive);
+  --color-border: var(--border);
+  --color-primary: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-editor: var(--editor-bg);
+  --color-editor-fg: var(--editor-fg);
+  --color-danger: #f38ba8;
+}
+
+/* Base */
 html, body, #root {
   height: 100%;
   overflow: hidden;
-  background: var(--bg);
-  color: var(--text);
 }
 
-/* xterm needs its own CSS override */
+/* CodeMirror height fill */
 .editor-body .cm-editor {
   height: 100%;
 }
 
-/* Resize cursors — Tailwind doesn't have n-resize etc. */
+/* Resize cursors — Tailwind doesn't have directional resize cursors */
+.resize-edge { position: absolute; z-index: 1; }
+.resize-corner { position: absolute; width: 12px; height: 12px; z-index: 2; }
 .resize-n { top: -3px; left: 8px; right: 8px; height: 6px; cursor: n-resize; }
 .resize-s { bottom: -3px; left: 8px; right: 8px; height: 6px; cursor: s-resize; }
 .resize-e { right: -3px; top: 8px; bottom: 8px; width: 6px; cursor: e-resize; }

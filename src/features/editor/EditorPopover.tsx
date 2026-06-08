@@ -231,7 +231,7 @@ export function EditorPopover({
 
   return (
     <div
-      className={`absolute bg-[var(--editor-bg,var(--bg))] border border-[var(--border)] flex flex-col overflow-hidden shadow-2xl ${
+      className={`absolute bg-editor border border-border flex flex-col overflow-hidden shadow-2xl ${
         maximized ? "rounded-none" : "rounded-lg"
       }`}
       style={
@@ -253,27 +253,25 @@ export function EditorPopover({
           <div className="resize-edge resize-s" onMouseDown={(e) => handleResizeStart(e, "s")} />
           <div className="resize-edge resize-e" onMouseDown={(e) => handleResizeStart(e, "e")} />
           <div className="resize-edge resize-w" onMouseDown={(e) => handleResizeStart(e, "w")} />
-          <div className="absolute w-3 h-3 z-[2] resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
-          <div className="absolute w-3 h-3 z-[2] resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
-          <div className="absolute w-3 h-3 z-[2] resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
-          <div className="absolute w-3 h-3 z-[2] resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
+          <div className="resize-corner resize-nw" onMouseDown={(e) => handleResizeStart(e, "nw")} />
+          <div className="resize-corner resize-ne" onMouseDown={(e) => handleResizeStart(e, "ne")} />
+          <div className="resize-corner resize-sw" onMouseDown={(e) => handleResizeStart(e, "sw")} />
+          <div className="resize-corner resize-se" onMouseDown={(e) => handleResizeStart(e, "se")} />
         </>
       )}
 
       <div
-        className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--tab-bar)] border-b border-[var(--border)] cursor-grab active:cursor-grabbing select-none text-[13px]"
+        className="flex items-center justify-between px-2.5 py-1.5 bg-tab-bar border-b border-border cursor-grab active:cursor-grabbing select-none text-[13px]"
         onMouseDown={maximized ? undefined : handleTitleMouseDown}
       >
-        <span className="flex items-center gap-1.5 text-[var(--text)]">
-          {isDirty && (
-            <span className="text-[var(--accent)] text-[10px]">●</span>
-          )}
+        <span className="flex items-center gap-1.5 text-primary">
+          {isDirty && <span className="text-accent text-[10px]">●</span>}
           <FileIcon name={fileName} isDir={false} />
           {fileName}
         </span>
         <div className="flex items-center gap-1">
           <button
-            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm px-1 leading-none hover:text-[var(--text)]"
+            className="bg-transparent border-none text-muted cursor-pointer text-sm px-1 leading-none hover:text-primary"
             onClick={handleToggleMaximize}
             title={maximized ? "Restore" : "Maximize"}
           >
@@ -281,7 +279,7 @@ export function EditorPopover({
           </button>
           <button
             data-close
-            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm px-1 leading-none hover:text-[#f38ba8]"
+            className="bg-transparent border-none text-muted cursor-pointer text-sm px-1 leading-none hover:text-danger"
             onClick={handleClose}
           >
             ×

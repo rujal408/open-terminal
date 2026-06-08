@@ -39,10 +39,10 @@ export const TabBar = memo(function TabBar({
       {workspaces.map((ws, i) => (
         <div
           key={ws.id}
-          className={`flex items-center gap-1.5 px-3 h-full border-r border-[var(--border)] cursor-pointer text-[13px] whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-[13px] whitespace-nowrap ${
             ws.id === activeId
-              ? "bg-[var(--tab-active)] text-[var(--text)]"
-              : "bg-[var(--tab-inactive)] text-[var(--text-muted)]"
+              ? "bg-tab-active text-primary"
+              : "bg-tab-inactive text-muted"
           }`}
           onClick={() => onSelect(ws.id)}
           draggable
@@ -54,7 +54,7 @@ export const TabBar = memo(function TabBar({
             {ws.label}
           </span>
           <button
-            className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-sm px-0.5 leading-none hover:text-[var(--text)]"
+            className="bg-transparent border-none text-muted cursor-pointer text-sm px-0.5 leading-none hover:text-primary"
             onClick={(e) => {
               e.stopPropagation();
               onClose(ws.id);
@@ -65,7 +65,7 @@ export const TabBar = memo(function TabBar({
         </div>
       ))}
       <button
-        className="bg-transparent border-none text-[var(--text-muted)] cursor-pointer text-lg px-3 h-full hover:text-[var(--text)]"
+        className="bg-transparent border-none text-muted cursor-pointer text-lg px-3 h-full hover:text-primary"
         onClick={onNew}
       >
         +

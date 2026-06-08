@@ -55,20 +55,19 @@ export function FileIcon({ name, isDir, expanded }: FileIconProps) {
     case "toml":
     case "yaml":
     case "yml":
-      return <VscSettingsGear className="text-[var(--text-muted)] shrink-0" />;
+      return <VscSettingsGear className="text-muted shrink-0" />;
     default:
       break;
   }
 
-  // Config files by name
   if (
     base.startsWith(".git") ||
     base.startsWith(".env") ||
     base === ".editorconfig" ||
     base === ".prettierrc"
   ) {
-    return <VscGear className="text-[var(--text-muted)] shrink-0" />;
+    return <VscGear className="text-muted shrink-0" />;
   }
 
-  return <VscFile className="text-[var(--text-muted)] shrink-0" />;
+  return <VscFile className="text-muted shrink-0" />;
 }
