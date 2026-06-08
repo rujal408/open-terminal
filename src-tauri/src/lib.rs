@@ -1,4 +1,5 @@
 mod filesystem;
+mod pty_manager;
 mod settings;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -6,6 +7,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(pty_manager::PtyState::new())
         .invoke_handler(tauri::generate_handler![
             settings::load_settings,
             settings::save_settings,
@@ -19,6 +21,11 @@ pub fn run() {
             filesystem::create_directory,
             filesystem::rename_entry,
             filesystem::delete_entry,
+            pty_manager::spawn_pty,
+            pty_manager::write_pty,
+            pty_manager::resize_pty,
+            pty_manager::get_scrollback,
+            pty_manager::kill_pty,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
