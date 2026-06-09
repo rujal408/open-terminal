@@ -16,7 +16,7 @@ function createWorkspace(): Workspace {
     id,
     projectPath: null,
     label: "New Tab",
-    ptyId: id,
+    terminalPanes: [{ id, ptyId: id }],
     openEditors: [],
   };
 }
@@ -41,8 +41,13 @@ function AppContent() {
 
   const handleClose = useCallback(
     (id: string) => {
-      invoke("kill_pty", { ptyId: id }).catch(() => {});
       setWorkspaces((prev) => {
+        const closing = prev.find((ws) => ws.id === id);
+        if (closing) {
+          closing.terminalPanes.forEach((pane) =>
+            invoke("kill_pty", { ptyId: pane.ptyId }).catch(() => {})
+          );
+        }
         const next = prev.filter((ws) => ws.id !== id);
         if (next.length === 0) {
           const ws = createWorkspace();

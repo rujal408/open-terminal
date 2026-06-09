@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef, memo } from "react";
 import { FileTree } from "../file-tree/FileTree";
-import { TerminalView } from "../terminal/TerminalView";
+import { TerminalGrid } from "../terminal/TerminalGrid";
 import { EditorManager, openEditorPanel } from "../editor/EditorManager";
-import type { Workspace, Theme, Settings } from "../../types";
+import type { Workspace, Theme, Settings, TerminalPane } from "../../types";
 
 interface WorkspaceViewProps {
   workspace: Workspace;
@@ -60,6 +60,13 @@ export const WorkspaceView = memo(function WorkspaceView({
     []
   );
 
+  const handlePanesChange = useCallback(
+    (panes: TerminalPane[]) => {
+      onChangeRef.current({ ...workspaceRef.current, terminalPanes: panes });
+    },
+    []
+  );
+
   return (
     <div className="flex h-full">
       <div style={{ width: sidebarWidth, flexShrink: 0 }}>
@@ -74,15 +81,13 @@ export const WorkspaceView = memo(function WorkspaceView({
         onMouseDown={handleResizeStart}
       />
       <div className="flex-1 relative overflow-hidden">
-        <TerminalView
-          ptyId={workspace.ptyId}
+        <TerminalGrid
+          panes={workspace.terminalPanes}
           cwd={workspace.projectPath!}
           theme={theme}
-          fontSize={settings.font_size}
-          scrollback={settings.terminal_scrollback}
-          shell={settings.default_shell}
-          dragDropPathMode={settings.drag_drop_path_mode}
+          settings={settings}
           isActive={isActive}
+          onPanesChange={handlePanesChange}
         />
         <EditorManager
           editors={workspace.openEditors}

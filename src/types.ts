@@ -1,8 +1,13 @@
+export interface TerminalPane {
+  id: string;
+  ptyId: string;
+}
+
 export interface Workspace {
   id: string;
   projectPath: string | null;
   label: string;
-  ptyId: string;
+  terminalPanes: TerminalPane[];
   openEditors: EditorPanel[];
 }
 

@@ -49,11 +49,8 @@ export function FileTreeNode({
     };
   }, [entry.path, entry.is_dir]);
 
-  const toggle = useCallback(async () => {
-    if (!entry.is_dir) {
-      onFileClick(entry.path);
-      return;
-    }
+  const toggleDir = useCallback(async () => {
+    if (!entry.is_dir) return;
     if (!loaded || !expanded) {
       const entries = await invoke<DirEntry[]>("list_directory", {
         path: entry.path,
@@ -62,7 +59,15 @@ export function FileTreeNode({
       setLoaded(true);
     }
     setExpanded((prev) => !prev);
-  }, [entry, loaded, expanded, onFileClick]);
+  }, [entry, loaded, expanded]);
+
+  const handleClick = useCallback(() => {
+    if (entry.is_dir) {
+      toggleDir();
+    } else {
+      onFileClick(entry.path);
+    }
+  }, [entry, onFileClick, toggleDir]);
 
   function handleDragStart(e: React.DragEvent) {
     if (entry.is_dir) return;
@@ -75,6 +80,7 @@ export function FileTreeNode({
 
   function handleRightClick(e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation();
     const items: MenuItem[] = entry.is_dir
       ? [
           { label: "New File", action: () => promptCreate(entry.path, false) },
@@ -110,7 +116,7 @@ export function FileTreeNode({
       <div
         className="flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-primary hover:bg-border"
         style={{ paddingLeft: depth * 16 + 8 }}
-        onClick={toggle}
+        onClick={handleClick}
         onContextMenu={handleRightClick}
         draggable={!entry.is_dir}
         onDragStart={handleDragStart}
