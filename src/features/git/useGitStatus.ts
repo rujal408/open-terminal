@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitStatusInfo, GitBranchEntry } from "../../types";
 
@@ -114,19 +114,37 @@ export function useGitStatus(projectPath: string | null) {
     [projectPath, refresh, refreshBranches]
   );
 
-  // Build a map of absolute path → status string for the file tree
-  const statusMap = new Map<string, string>();
-  if (status.is_repo) {
-    for (const f of status.staged) statusMap.set(f.path, "staged");
-    for (const f of status.modified) statusMap.set(f.path, f.status);
-    for (const f of status.untracked) statusMap.set(f.path, "untracked");
-    for (const f of status.conflicted) statusMap.set(f.path, "conflicted");
-  }
+  // Build a stable map of absolute path → status string, and a set of dirty parent dirs.
+  // Memoized so FileTree (memo'd) doesn't re-render when poll returns identical data.
+  const { statusMap, dirtyDirs } = useMemo(() => {
+    const map = new Map<string, string>();
+    const dirs = new Set<string>();
+    if (status.is_repo) {
+      const addEntry = (path: string, st: string) => {
+        map.set(path, st);
+        // Mark every ancestor directory as dirty
+        let parent = path;
+        while (true) {
+          const slash = parent.lastIndexOf("/");
+          if (slash <= 0) break;
+          parent = parent.substring(0, slash);
+          if (dirs.has(parent)) break; // ancestors already marked
+          dirs.add(parent);
+        }
+      };
+      for (const f of status.staged) addEntry(f.path, "staged");
+      for (const f of status.modified) addEntry(f.path, f.status);
+      for (const f of status.untracked) addEntry(f.path, "untracked");
+      for (const f of status.conflicted) addEntry(f.path, "conflicted");
+    }
+    return { statusMap: map, dirtyDirs: dirs };
+  }, [status]);
 
   return {
     status,
     branches,
     statusMap,
+    dirtyDirs,
     refresh,
     refreshBranches,
     stageFile,

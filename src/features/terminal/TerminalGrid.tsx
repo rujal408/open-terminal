@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, memo } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { invoke } from "@tauri-apps/api/core";
 import { TerminalView } from "./TerminalView";
@@ -13,7 +13,7 @@ interface TerminalGridProps {
   onPanesChange: (panes: TerminalPane[]) => void;
 }
 
-export function TerminalGrid({
+export const TerminalGrid = memo(function TerminalGrid({
   panes,
   cwd,
   theme,
@@ -109,4 +109,4 @@ export function TerminalGrid({
       </div>
     </div>
   );
-}
+});

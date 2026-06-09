@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { FileIcon } from "./FileIcon";
@@ -37,15 +37,17 @@ interface FileTreeNodeProps {
   onFileClick: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, items: MenuItem[]) => void;
   gitStatusMap?: Map<string, string>;
+  gitDirtyDirs?: Set<string>;
 }
 
-export function FileTreeNode({
+export const FileTreeNode = memo(function FileTreeNode({
   entry,
   depth,
   projectPath,
   onFileClick,
   onContextMenu,
   gitStatusMap,
+  gitDirtyDirs,
 }: FileTreeNodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<DirEntry[]>([]);
@@ -135,13 +137,8 @@ export function FileTreeNode({
 
   // Git status for this file
   const gitStatus = gitStatusMap?.get(entry.path);
-  // For directories: check if any child path has a status
-  const dirHasChanges =
-    entry.is_dir && gitStatusMap
-      ? Array.from(gitStatusMap.keys()).some((p) =>
-          p.startsWith(entry.path + "/")
-        )
-      : false;
+  // For directories: O(1) lookup in precomputed set
+  const dirHasChanges = entry.is_dir && (gitDirtyDirs?.has(entry.path) ?? false);
   const nameColor =
     gitStatus
       ? GIT_STATUS_COLOR[gitStatus]
@@ -185,11 +182,12 @@ export function FileTreeNode({
             onFileClick={onFileClick}
             onContextMenu={onContextMenu}
             gitStatusMap={gitStatusMap}
+            gitDirtyDirs={gitDirtyDirs}
           />
         ))}
     </>
   );
-}
+});
 
 function promptCreate(parentPath: string, isDir: boolean) {
   const name = window.prompt(isDir ? "Folder name:" : "File name:");

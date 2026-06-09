@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useTransition } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
 import { ThemeProvider, useThemeContext } from "./features/theme/ThemeProvider";
@@ -30,6 +30,7 @@ function AppContent() {
 
   const { theme, setTheme } = useThemeContext();
   const { settings, updateSettings } = useSettings();
+  const [isPending, startTransition] = useTransition();
 
   const activeWorkspace = workspaces.find((ws) => ws.id === activeId)!;
 
@@ -76,13 +77,15 @@ function AppContent() {
     async (path: string) => {
       const name = path.split("/").pop() || path;
       await invoke("add_recent_project", { projectPath: path, name });
-      setWorkspaces((prev) =>
-        prev.map((ws) =>
-          ws.id === activeId ? { ...ws, projectPath: path, label: name } : ws
-        )
-      );
+      startTransition(() => {
+        setWorkspaces((prev) =>
+          prev.map((ws) =>
+            ws.id === activeId ? { ...ws, projectPath: path, label: name } : ws
+          )
+        );
+      });
     },
-    [activeId]
+    [activeId, startTransition]
   );
 
   const handleWorkspaceChange = useCallback((updated: Workspace) => {
@@ -124,7 +127,17 @@ function AppContent() {
       </div>
       <div className="flex-1 overflow-hidden relative">
         {activeWorkspace.projectPath === null && (
-          <WelcomeScreen onOpenProject={handleOpenProject} />
+          <>
+            <WelcomeScreen onOpenProject={handleOpenProject} />
+            {isPending && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center" style={{ background: "var(--bg)", opacity: 0.85 }}>
+                <div className="flex flex-col items-center gap-2 text-muted">
+                  <div className="w-6 h-6 border-2 border-muted border-t-accent rounded-full animate-spin" />
+                  <span className="text-xs">Opening project...</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
         {workspaces
           .filter((ws) => ws.projectPath !== null)

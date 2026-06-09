@@ -37,12 +37,19 @@ export const TerminalView = memo(function TerminalView({
 
   const [dragOver, setDragOver] = useState(false);
 
+  // Defer attach by one frame so the grid layout settles before
+  // heavy work (WebGL context, PTY spawn) runs
   useEffect(() => {
-    if (containerRef.current) {
-      const cleanup = attach(containerRef.current);
-      cleanupRef.current = cleanup || null;
+    let rafId: number;
+    const container = containerRef.current;
+    if (container) {
+      rafId = requestAnimationFrame(() => {
+        const cleanup = attach(container);
+        cleanupRef.current = cleanup || null;
+      });
     }
     return () => {
+      cancelAnimationFrame(rafId);
       cleanupRef.current?.();
     };
   }, [attach]);

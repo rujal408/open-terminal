@@ -144,17 +144,23 @@ export function useTerminal({
         });
       }
 
-      // Resize observer
+      // Resize observer — debounced via rAF to batch rapid layout changes
+      // (e.g. when grid adds/removes a pane, all terminals resize at once)
+      let resizeRaf = 0;
       const observer = new ResizeObserver(() => {
-        fitAddon.fit();
-        const { cols, rows } = term;
-        invoke("resize_pty", { ptyId, rows, cols }).catch(() => {});
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(() => {
+          fitAddon.fit();
+          const { cols, rows } = term;
+          invoke("resize_pty", { ptyId, rows, cols }).catch(() => {});
+        });
       });
       observer.observe(container);
       resizeObserverRef.current = observer;
 
       // Cleanup function
       return () => {
+        cancelAnimationFrame(resizeRaf);
         observer.disconnect();
         resizeObserverRef.current = null;
         onDataDisposableRef.current?.dispose();

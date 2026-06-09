@@ -151,6 +151,7 @@ export const WorkspaceView = memo(function WorkspaceView({
             workspaceId={workspace.id}
             onFileClick={handleFileClick}
             gitStatusMap={git.statusMap}
+            gitDirtyDirs={git.dirtyDirs}
           />
         </div>
         <div

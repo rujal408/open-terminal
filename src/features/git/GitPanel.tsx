@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import { VscGitCompare, VscCheck, VscDiscard, VscDiffAdded, VscDiffRemoved, VscRefresh, VscGitCommit } from "react-icons/vsc";
 import type { GitStatusInfo, GitBranchEntry } from "../../types";
 
@@ -87,7 +87,7 @@ function IconBtn({
   );
 }
 
-export function GitPanel({
+export const GitPanel = memo(function GitPanel({
   status,
   branches,
   onStageFile,
@@ -319,4 +319,4 @@ export function GitPanel({
       </div>
     </div>
   );
-}
+});
