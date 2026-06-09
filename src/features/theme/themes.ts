@@ -26,6 +26,11 @@ export const darkTheme: Theme = {
     editorFg: "#cdd6f4",
     editorLineNumber: "#6c7086",
     editorSelection: "#313244",
+    gitAdded: "#a6e3a1",
+    gitModified: "#f9e2af",
+    gitDeleted: "#f38ba8",
+    gitUntracked: "#94e2d5",
+    gitConflicted: "#fab387",
   },
 };
 
@@ -55,5 +60,10 @@ export const lightTheme: Theme = {
     editorFg: "#4c4f69",
     editorLineNumber: "#8c8fa1",
     editorSelection: "#ccd0da",
+    gitAdded: "#40a02b",
+    gitModified: "#df8e1d",
+    gitDeleted: "#d20f39",
+    gitUntracked: "#179299",
+    gitConflicted: "#fe640b",
   },
 };

@@ -1,5 +1,6 @@
 mod file_watcher;
 mod filesystem;
+mod git_commands;
 mod pty_manager;
 mod settings;
 
@@ -30,6 +31,15 @@ pub fn run() {
             pty_manager::kill_pty,
             file_watcher::watch_directory,
             file_watcher::unwatch_directory,
+            git_commands::git_status,
+            git_commands::git_branches,
+            git_commands::git_checkout_branch,
+            git_commands::git_stage_file,
+            git_commands::git_unstage_file,
+            git_commands::git_discard_file,
+            git_commands::git_commit,
+            git_commands::git_stage_all,
+            git_commands::git_unstage_all,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

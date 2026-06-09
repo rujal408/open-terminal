@@ -10,6 +10,7 @@ interface FileTreeProps {
   projectPath: string;
   workspaceId: string;
   onFileClick: (path: string) => void;
+  gitStatusMap?: Map<string, string>;
 }
 
 interface FsChangeEvent {
@@ -21,6 +22,7 @@ export const FileTree = memo(function FileTree({
   projectPath,
   workspaceId,
   onFileClick,
+  gitStatusMap,
 }: FileTreeProps) {
   const [entries, setEntries] = useState<DirEntry[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -105,6 +107,7 @@ export const FileTree = memo(function FileTree({
             projectPath={projectPath}
             onFileClick={onFileClick}
             onContextMenu={handleContextMenu}
+            gitStatusMap={gitStatusMap}
           />
         ))}
       </div>

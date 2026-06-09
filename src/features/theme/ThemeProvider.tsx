@@ -27,6 +27,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--accent", c.accent);
     root.style.setProperty("--editor-bg", c.editorBg);
     root.style.setProperty("--editor-fg", c.editorFg);
+    root.style.setProperty("--git-added", c.gitAdded);
+    root.style.setProperty("--git-modified", c.gitModified);
+    root.style.setProperty("--git-deleted", c.gitDeleted);
+    root.style.setProperty("--git-untracked", c.gitUntracked);
+    root.style.setProperty("--git-conflicted", c.gitConflicted);
   }, [theme]);
 
   const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);

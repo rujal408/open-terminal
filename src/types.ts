@@ -41,6 +41,29 @@ export interface RecentProject {
   last_opened: number;
 }
 
+export interface GitFileEntry {
+  path: string;
+  status: string;
+}
+
+export interface GitStatusInfo {
+  is_repo: boolean;
+  branch: string;
+  is_dirty: boolean;
+  ahead: number;
+  behind: number;
+  staged: GitFileEntry[];
+  modified: GitFileEntry[];
+  untracked: GitFileEntry[];
+  conflicted: GitFileEntry[];
+}
+
+export interface GitBranchEntry {
+  name: string;
+  is_current: boolean;
+  is_remote: boolean;
+}
+
 export interface Theme {
   name: string;
   type: "dark" | "light";
@@ -62,5 +85,10 @@ export interface Theme {
     editorFg: string;
     editorLineNumber: string;
     editorSelection: string;
+    gitAdded: string;
+    gitModified: string;
+    gitDeleted: string;
+    gitUntracked: string;
+    gitConflicted: string;
   };
 }

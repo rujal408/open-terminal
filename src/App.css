@@ -14,6 +14,11 @@
   --color-editor: var(--editor-bg);
   --color-editor-fg: var(--editor-fg);
   --color-danger: #f38ba8;
+  --color-git-added: var(--git-added);
+  --color-git-modified: var(--git-modified);
+  --color-git-deleted: var(--git-deleted);
+  --color-git-untracked: var(--git-untracked);
+  --color-git-conflicted: var(--git-conflicted);
 }
 
 /* Base */

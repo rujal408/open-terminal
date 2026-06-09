@@ -10,12 +10,33 @@ interface FsChangeEvent {
   parent: string;
 }
 
+const GIT_STATUS_COLOR: Record<string, string> = {
+  staged: "var(--git-added)",
+  added: "var(--git-added)",
+  modified: "var(--git-modified)",
+  deleted: "var(--git-deleted)",
+  untracked: "var(--git-untracked)",
+  conflicted: "var(--git-conflicted)",
+  renamed: "var(--git-modified)",
+};
+
+const GIT_STATUS_BADGE: Record<string, string> = {
+  staged: "S",
+  added: "A",
+  modified: "M",
+  deleted: "D",
+  untracked: "U",
+  conflicted: "C",
+  renamed: "R",
+};
+
 interface FileTreeNodeProps {
   entry: DirEntry;
   depth: number;
   projectPath: string;
   onFileClick: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, items: MenuItem[]) => void;
+  gitStatusMap?: Map<string, string>;
 }
 
 export function FileTreeNode({
@@ -24,6 +45,7 @@ export function FileTreeNode({
   projectPath,
   onFileClick,
   onContextMenu,
+  gitStatusMap,
 }: FileTreeNodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState<DirEntry[]>([]);
@@ -111,6 +133,22 @@ export function FileTreeNode({
     onContextMenu(e, items);
   }
 
+  // Git status for this file
+  const gitStatus = gitStatusMap?.get(entry.path);
+  // For directories: check if any child path has a status
+  const dirHasChanges =
+    entry.is_dir && gitStatusMap
+      ? Array.from(gitStatusMap.keys()).some((p) =>
+          p.startsWith(entry.path + "/")
+        )
+      : false;
+  const nameColor =
+    gitStatus
+      ? GIT_STATUS_COLOR[gitStatus]
+      : dirHasChanges
+        ? "var(--git-modified)"
+        : undefined;
+
   return (
     <>
       <div
@@ -122,9 +160,20 @@ export function FileTreeNode({
         onDragStart={handleDragStart}
       >
         <FileIcon name={entry.name} isDir={entry.is_dir} expanded={expanded} />
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+        <span
+          className="overflow-hidden text-ellipsis whitespace-nowrap flex-1"
+          style={nameColor ? { color: nameColor } : undefined}
+        >
           {entry.name}
         </span>
+        {gitStatus && (
+          <span
+            className="text-[10px] font-bold shrink-0 ml-auto"
+            style={{ color: GIT_STATUS_COLOR[gitStatus] }}
+          >
+            {GIT_STATUS_BADGE[gitStatus]}
+          </span>
+        )}
       </div>
       {expanded &&
         children.map((child) => (
@@ -135,6 +184,7 @@ export function FileTreeNode({
             projectPath={projectPath}
             onFileClick={onFileClick}
             onContextMenu={onContextMenu}
+            gitStatusMap={gitStatusMap}
           />
         ))}
     </>
