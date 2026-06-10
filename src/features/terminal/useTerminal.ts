@@ -1,3 +1,13 @@
+// Hook that creates and manages an xterm.js terminal connected to a Rust-side
+// pseudo-terminal (PTY). It handles the full lifecycle:
+//   1. Create xterm Terminal instance and FitAddon
+//   2. Attach to a DOM container (called by TerminalView after layout settles)
+//   3. Load WebGL renderer for GPU-accelerated drawing
+//   4. Spawn the PTY process via Tauri IPC
+//   5. Wire up bidirectional data flow: keystrokes → PTY, PTY output → xterm
+//   6. Observe container resize → refit terminal → notify PTY of new dimensions
+//   7. Clean up everything on unmount (dispose terminal, kill listeners, disconnect observer)
+
 import { useEffect, useRef, useCallback } from "react";
 import { Terminal } from "xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -6,6 +16,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Theme } from "../../types";
 
+// Maps the app's Theme object to xterm's ITheme format. The app theme stores
+// the 16 ANSI colors as an array, but xterm expects them as named properties
+// (black, red, green, ... brightWhite).
 function themeToXterm(theme: Theme) {
   const c = theme.colors;
   return {
@@ -112,6 +125,12 @@ export function useTerminal({
 
       // Clipboard copy/paste: intercept Ctrl+C, Ctrl+V, Ctrl+Shift+C/V
       // so they behave like VS Code's integrated terminal.
+      //
+      // Why we write directly to the PTY via invoke("write_pty") instead of
+      // using term.paste(): term.paste() goes through xterm's input processing
+      // which adds bracket-paste escape sequences. Writing raw bytes to the PTY
+      // gives us exact control and avoids issues with programs that don't
+      // support bracketed paste mode.
       term.attachCustomKeyEventHandler((ev) => {
         const isCtrl = ev.ctrlKey || ev.metaKey;
 
@@ -164,7 +183,10 @@ export function useTerminal({
         return true; // all other keys pass through normally
       });
 
-      // Register input handler (keystrokes → PTY)
+      // Forward keystrokes from xterm to the PTY process. xterm's onData fires
+      // for every key the user types (after xterm processes it into the correct
+      // escape sequence). We encode it as a byte array because the Rust side
+      // expects Vec<u8> for write_pty.
       onDataDisposableRef.current = term.onData((data) => {
         invoke("write_pty", {
           ptyId,
@@ -172,7 +194,10 @@ export function useTerminal({
         });
       });
 
-      // Listen for PTY output → terminal
+      // Listen for PTY output coming from Rust. The Rust backend emits events
+      // named "pty-output:<ptyId>" whenever the shell produces output. We
+      // convert the payload (number[]) back to bytes and feed it to xterm for
+      // rendering.
       const eventName = `pty-output:${ptyId}`;
       const unlistenPromise = listen<number[]>(eventName, (event) => {
         const bytes = new Uint8Array(event.payload);
@@ -198,8 +223,13 @@ export function useTerminal({
         });
       }
 
-      // Resize observer — debounced via rAF to batch rapid layout changes
-      // (e.g. when grid adds/removes a pane, all terminals resize at once)
+      // Watch the container element for size changes (e.g. window resize, grid
+      // pane drag, sidebar toggle). When the container changes size:
+      //   1. FitAddon recalculates how many cols/rows fit in the new dimensions
+      //   2. We tell the PTY about the new size so programs like vim/less reflow
+      // Debounced via requestAnimationFrame to coalesce rapid layout changes
+      // (e.g. when the user is dragging a grid separator, dozens of resize
+      // events fire — we only act on the last one per frame).
       let resizeRaf = 0;
       const observer = new ResizeObserver(() => {
         cancelAnimationFrame(resizeRaf);
@@ -239,6 +269,9 @@ export function useTerminal({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Write arbitrary text into the terminal as if the user typed it.
+  // Used by drag-and-drop: when a file is dropped onto the terminal, its path
+  // is inserted as text so it appears at the cursor in the running shell.
   const insertText = useCallback(
     (text: string) => {
       invoke("write_pty", {

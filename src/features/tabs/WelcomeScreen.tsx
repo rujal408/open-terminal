@@ -7,13 +7,24 @@ interface WelcomeScreenProps {
   onOpenProject: (path: string) => void;
 }
 
+/**
+ * Displayed when a workspace tab has no projectPath set (i.e. the user
+ * hasn't picked a folder yet). Shows an "Open Folder" button and a list
+ * of recently opened projects loaded from the Rust backend.
+ */
 export function WelcomeScreen({ onOpenProject }: WelcomeScreenProps) {
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
 
+  // useState initializer trick: passing a function to useState causes it to
+  // run exactly once during the initial render (not on re-renders). We use
+  // this to kick off the async load without needing useEffect, which would
+  // run after paint and cause a visible flash of empty content.
   useState(() => {
     invoke<RecentProject[]>("load_recent_projects").then(setRecentProjects);
   });
 
+  // Opens the OS-native folder picker via the Tauri dialog plugin.
+  // `directory: true` restricts the picker to folders only (no files).
   async function handleOpenFolder() {
     const selected = await open({ directory: true, multiple: false });
     if (selected) {

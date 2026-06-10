@@ -12,6 +12,11 @@ import { SettingsPanel } from "./features/settings/SettingsPanel";
 import type { Workspace } from "./types";
 import "./App.css";
 
+// Factory for a fresh workspace (tab). projectPath starts as null, meaning no
+// folder is open yet — the UI will show a WelcomeScreen until the user picks
+// a project. Each workspace is born with a single terminal pane whose id and
+// ptyId share the same UUID (the PTY hasn't been spawned yet — that happens
+// when the terminal component mounts and calls spawn_pty via IPC).
 function createWorkspace(): Workspace {
   const id = uuidv4();
   return {
@@ -42,6 +47,9 @@ function AppContent() {
     setActiveId(ws.id);
   }, []);
 
+  // Close a workspace tab: kill all its PTY processes on the Rust side, then
+  // remove it from state. If that was the last tab, create a fresh workspace
+  // so the app never ends up with zero tabs (similar to how browsers behave).
   const handleClose = useCallback(
     (id: string) => {
       const closing = workspaces.find((ws) => ws.id === id);
@@ -75,6 +83,11 @@ function AppContent() {
     });
   }, []);
 
+  // Open a project folder in the active tab: persist it to the recent projects
+  // list (Rust-side storage), then update the workspace's projectPath so the UI
+  // switches from WelcomeScreen to WorkspaceView. The state update is wrapped
+  // in startTransition so the WelcomeScreen stays interactive while React
+  // prepares the heavier WorkspaceView tree in the background.
   const handleOpenProject = useCallback(
     async (path: string) => {
       const name = path.split("/").pop() || path;
@@ -120,8 +133,19 @@ function AppContent() {
     handleClose(activeId);
   }, [handleClose, activeId]);
 
+  // Layout: vertical stack of [menu bar] → [tab bar] → [content area].
+  // The content area renders either a WelcomeScreen (when no project is open
+  // in the active tab) or WorkspaceView(s) for loaded projects.
+  //
+  // IMPORTANT: WorkspaceViews use `display: none/block` instead of conditional
+  // rendering. This is intentional — each WorkspaceView contains live xterm.js
+  // terminals with WebGL contexts and PTY connections. Unmounting and
+  // remounting would destroy terminal state (scroll history, running processes).
+  // By toggling visibility, inactive tabs stay alive in the DOM and resume
+  // instantly when the user switches back.
   return (
     <div className="flex flex-col h-full bg-app text-primary">
+      {/* Menu bar — fixed-height strip at the very top */}
       <div className="flex items-center bg-tab-bar border-b border-border h-8 shrink-0 px-1">
         <MenuBar
           onOpenFolder={handleOpenFolder}
@@ -136,6 +160,7 @@ function AppContent() {
           ⚙
         </button>
       </div>
+      {/* Tab bar — draggable tabs, one per workspace */}
       <div className="flex items-center bg-tab-bar border-b border-border h-9 shrink-0">
         <TabBar
           workspaces={workspaces}
@@ -146,7 +171,9 @@ function AppContent() {
           onReorder={handleReorder}
         />
       </div>
+      {/* Content area — fills remaining vertical space */}
       <div className="flex-1 overflow-hidden relative">
+        {/* WelcomeScreen: shown only when the active tab has no project open */}
         {activeWorkspace.projectPath === null && (
           <>
             <WelcomeScreen onOpenProject={handleOpenProject} />
@@ -160,6 +187,9 @@ function AppContent() {
             )}
           </>
         )}
+        {/* All workspace views with an open project — stacked absolutely,
+            only the active one is visible (display:block vs display:none).
+            See note above about why we avoid unmounting. */}
         {workspaces
           .filter((ws) => ws.projectPath !== null)
           .map((ws) => (
@@ -189,6 +219,9 @@ function AppContent() {
   );
 }
 
+// ThemeProvider must wrap AppContent because AppContent calls useThemeContext().
+// AppContent is a separate component (rather than inlining everything in App)
+// so that the theme context is available via the hook.
 export default function App() {
   return (
     <ThemeProvider>

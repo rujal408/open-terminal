@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, memo } from "react";
 
+/**
+ * A single entry inside a dropdown menu.
+ * - `label` + optional `shortcut` are displayed as text.
+ * - `action` fires when the item is clicked.
+ * - If `separator` is true the item renders as a horizontal divider instead.
+ */
 interface MenuItem {
   label: string;
   shortcut?: string;
@@ -7,6 +13,7 @@ interface MenuItem {
   separator?: boolean;
 }
 
+/** A top-level menu heading (e.g. "File") with its dropdown items. */
 interface Menu {
   label: string;
   items: MenuItem[];
@@ -25,7 +32,10 @@ export const MenuBar = memo(function MenuBar({
   onCloseTab,
   onOpenSettings,
 }: MenuBarProps) {
+  // Tracks which top-level menu is currently open by its index.
+  // `null` means all menus are closed.
   const [openMenu, setOpenMenu] = useState<number | null>(null);
+  // Ref to the entire menu bar element, used to detect outside clicks.
   const barRef = useRef<HTMLDivElement>(null);
 
   const menus: Menu[] = [
@@ -54,6 +64,10 @@ export const MenuBar = memo(function MenuBar({
         },
       ],
     },
+    // View and Terminal menus use CustomEvent to communicate with
+    // WorkspaceView. This decouples MenuBar from workspace internals --
+    // WorkspaceView listens for these events and handles them locally
+    // (e.g. switching sidebar tab or splitting the terminal pane).
     {
       label: "View",
       items: [
@@ -98,7 +112,9 @@ export const MenuBar = memo(function MenuBar({
     },
   ];
 
-  // Close menu on outside click or Escape
+  // Close the dropdown when the user clicks anywhere outside the menu bar
+  // or presses Escape. Listeners are only attached while a menu is open
+  // (openMenu !== null) to avoid unnecessary global event handling.
   useEffect(() => {
     if (openMenu === null) return;
 
@@ -120,7 +136,10 @@ export const MenuBar = memo(function MenuBar({
     };
   }, [openMenu]);
 
-  // Global keyboard shortcuts
+  // Register global keyboard shortcuts so they work regardless of which
+  // element has focus. These mirror the shortcuts shown in the menu items.
+  // The effect re-subscribes whenever the action callbacks change identity
+  // (which is fine because the parent memo's them).
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       const ctrl = e.ctrlKey || e.metaKey;
@@ -162,6 +181,9 @@ export const MenuBar = memo(function MenuBar({
           <button
             className={`menu-trigger ${openMenu === i ? "active" : ""}`}
             onClick={() => setOpenMenu(openMenu === i ? null : i)}
+            // VS-Code-style hover-to-switch: if any menu is already open,
+            // hovering over a different top-level label instantly switches
+            // the dropdown rather than requiring a separate click.
             onMouseEnter={() => {
               if (openMenu !== null) setOpenMenu(i);
             }}

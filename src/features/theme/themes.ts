@@ -16,6 +16,9 @@ export const darkTheme: Theme = {
     terminalBg: "#1e1e2e",
     terminalFg: "#cdd6f4",
     terminalCursor: "#f5e0dc",
+    // 16 standard ANSI terminal colors used by xterm.js.
+    // Index 0-7:  normal   (black, red, green, yellow, blue, magenta, cyan, white)
+    // Index 8-15: bright   (same order, brighter variants)
     ansi: [
       "#45475a", "#f38ba8", "#a6e3a1", "#f9e2af",
       "#89b4fa", "#cba6f7", "#94e2d5", "#bac2de",
@@ -50,6 +53,7 @@ export const lightTheme: Theme = {
     terminalBg: "#eff1f5",
     terminalFg: "#4c4f69",
     terminalCursor: "#dc8a78",
+    // 16 standard ANSI terminal colors (see dark theme comment for index layout)
     ansi: [
       "#bcc0cc", "#d20f39", "#40a02b", "#df8e1d",
       "#1e66f5", "#8839ef", "#179299", "#5c5f77",

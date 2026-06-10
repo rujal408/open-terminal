@@ -17,6 +17,14 @@ interface WorkspaceViewProps {
 
 type SidebarTab = "files" | "git";
 
+/**
+ * The main workspace layout:  icon rail | sidebar panel | resize handle | content area
+ *
+ * - The icon rail on the far left lets the user switch sidebar tabs (files, git).
+ * - The sidebar panel shows either the file tree or git panel.
+ * - A draggable resize handle sits between the sidebar and content area.
+ * - The content area holds the terminal grid and any open editor panels.
+ */
 export const WorkspaceView = memo(function WorkspaceView({
   workspace,
   theme,
@@ -24,7 +32,10 @@ export const WorkspaceView = memo(function WorkspaceView({
   isActive,
   onWorkspaceChange,
 }: WorkspaceViewProps) {
-  // Defer heavy children until after the first paint so the shell renders instantly
+  // Performance optimization: defer rendering heavy children (terminal, file
+  // tree, git panel) until after the first paint. This lets the skeleton
+  // shell (the sidebar + loading spinner) appear instantly while xterm.js
+  // and file tree initialization happen in the next frame.
   const [ready, setReady] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setReady(true));
@@ -32,15 +43,27 @@ export const WorkspaceView = memo(function WorkspaceView({
   }, []);
 
   const [sidebarWidth, setSidebarWidth] = useState(250);
+  // Which sidebar panel is visible: the file explorer or the git panel.
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
   const resizingRef = useRef(false);
+
+  // Refs that always point to the latest `workspace` and `onWorkspaceChange`.
+  // Callbacks like handleFileClick and handleSplitTerminal are wrapped in
+  // useCallback with an empty dependency array (so they never change identity
+  // and don't trigger child re-renders). To access up-to-date values inside
+  // those stable callbacks, we read from refs instead of closing over stale
+  // props directly.
   const workspaceRef = useRef(workspace);
   workspaceRef.current = workspace;
   const onChangeRef = useRef(onWorkspaceChange);
   onChangeRef.current = onWorkspaceChange;
 
+  // Pass null until ready so git polling doesn't start before the UI is painted.
   const git = useGitStatus(ready ? workspace.projectPath : null);
 
+  // Sidebar resize: on mouseDown we attach document-level mousemove/mouseup
+  // handlers (document-level so dragging outside the handle still works).
+  // Width is clamped between 150px and 500px.
   function handleResizeStart(e: React.MouseEvent) {
     e.preventDefault();
     resizingRef.current = true;
@@ -82,7 +105,10 @@ export const WorkspaceView = memo(function WorkspaceView({
     []
   );
 
-  // Listen for menu bar events
+  // Listen for CustomEvents dispatched by MenuBar (see menu/MenuBar.tsx).
+  // Only the *active* workspace tab subscribes -- inactive tabs ignore
+  // menu actions so that, e.g., "Split Terminal" only affects the visible
+  // workspace rather than all of them.
   useEffect(() => {
     if (!isActive) return;
 
@@ -165,7 +191,10 @@ export const WorkspaceView = memo(function WorkspaceView({
         </button>
       </div>
 
-      {/* Sidebar content */}
+      {/* Sidebar content — both panels are always mounted and positioned
+          with absolute inset-0. We toggle visibility via display:none
+          instead of conditional rendering so that each panel preserves
+          its scroll position and internal state when switched away. */}
       <div
         className="flex flex-col overflow-hidden bg-sidebar relative"
         style={{ width: sidebarWidth - 40, flexShrink: 0 }}
@@ -201,6 +230,7 @@ export const WorkspaceView = memo(function WorkspaceView({
         </div>
       </div>
 
+      {/* Resize handle -- a 4px strip the user can drag to adjust sidebar width */}
       <div
         className="w-1 shrink-0 cursor-col-resize bg-border transition-colors duration-150 hover:bg-accent"
         onMouseDown={handleResizeStart}

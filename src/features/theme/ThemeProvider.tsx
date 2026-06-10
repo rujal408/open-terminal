@@ -13,6 +13,12 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/**
+ * Wraps the app (or a subtree) to provide the current theme via React
+ * Context. Any component can call `useThemeContext()` to read the active
+ * theme or switch themes. ThemeProvider also owns the side effect that
+ * syncs theme colors to CSS custom properties on <html>.
+ */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const {
     theme,
@@ -23,7 +29,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     reloadCustomThemes,
   } = useTheme();
 
-  // Side effect: sync CSS custom properties to document root
+  // Map theme colors to CSS custom properties on <html>. Tailwind classes
+  // like `bg-sidebar`, `text-primary`, `border-border` etc. reference these
+  // variables (defined in tailwind.config), so updating them here
+  // instantly re-themes the entire UI without any component re-renders.
+  // Also sets `colorScheme` so native browser elements (scrollbars, form
+  // controls) adopt the correct light/dark appearance.
   useEffect(() => {
     const root = document.documentElement;
     const c = theme.colors;
@@ -43,10 +54,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--git-deleted", c.gitDeleted);
     root.style.setProperty("--git-untracked", c.gitUntracked);
     root.style.setProperty("--git-conflicted", c.gitConflicted);
-    // Tell the browser which color scheme native controls should use
     root.style.colorScheme = theme.type;
   }, [theme]);
 
+  // Wrap the context value in useMemo so that consumers only re-render
+  // when one of the values actually changes. Without this, ThemeProvider
+  // would create a new object on every render, causing every useContext
+  // consumer to re-render even if nothing theme-related changed.
   const value = useMemo(
     () => ({
       theme,

@@ -1,12 +1,21 @@
+//! Filesystem operations exposed as Tauri IPC commands.
+//!
+//! These are the building blocks for the file tree panel and the built-in
+//! code editor in the frontend.
+
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
 
+/// A single file or directory entry returned to the frontend for the file tree.
+/// Serialized to JSON automatically by Tauri's IPC layer.
 #[derive(Debug, Serialize)]
 pub struct DirEntry {
     pub name: String,
     pub path: String,
     pub is_dir: bool,
+    /// Files starting with '.' are considered hidden (Unix convention).
+    /// The frontend uses this to toggle hidden-file visibility.
     pub is_hidden: bool,
 }
 
@@ -32,6 +41,8 @@ pub fn list_directory(path: String) -> Result<Vec<DirEntry>, String> {
         })
         .collect();
 
+    // Sort: directories first (`b.is_dir.cmp(&a.is_dir)` puts true before false),
+    // then alphabetically by name (case-insensitive) within each group.
     entries.sort_by(|a, b| {
         b.is_dir
             .cmp(&a.is_dir)
@@ -72,6 +83,8 @@ pub fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
     fs::rename(&old_path, &new_path).map_err(|e| e.to_string())
 }
 
+/// Moves a file or directory to the OS trash/recycle bin instead of permanently
+/// deleting it. This gives users a safety net to recover accidentally deleted files.
 #[tauri::command]
 pub fn delete_entry(path: String) -> Result<(), String> {
     trash::delete(&path).map_err(|e| format!("Failed to trash {}: {}", path, e))

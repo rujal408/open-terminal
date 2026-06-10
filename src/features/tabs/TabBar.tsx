@@ -18,6 +18,11 @@ export const TabBar = memo(function TabBar({
   onNew,
   onReorder,
 }: TabBarProps) {
+  // --- Drag-to-reorder mechanism ---
+  // On drag start, we stash the source tab's index in dataTransfer.
+  // On drop, we read it back and ask the parent to swap the two positions.
+  // This avoids any local drag state and works natively with HTML5 DnD.
+
   function handleDragStart(e: React.DragEvent, index: number) {
     e.dataTransfer.setData("tab-index", String(index));
   }
@@ -30,6 +35,7 @@ export const TabBar = memo(function TabBar({
     }
   }
 
+  // Must preventDefault on dragOver to allow this element to be a valid drop target.
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
   }
@@ -39,6 +45,8 @@ export const TabBar = memo(function TabBar({
       {workspaces.map((ws, i) => (
         <div
           key={ws.id}
+          // Active tab gets a brighter background + primary text color;
+          // inactive tabs stay muted so the active one is visually distinct.
           className={`flex items-center gap-1.5 px-3 h-full border-r border-border cursor-pointer text-[13px] whitespace-nowrap ${
             ws.id === activeId
               ? "bg-tab-active text-primary"
@@ -56,6 +64,9 @@ export const TabBar = memo(function TabBar({
           <button
             className="bg-transparent border-none text-muted cursor-pointer text-sm px-0.5 leading-none hover:text-primary"
             onClick={(e) => {
+              // stopPropagation prevents the click from bubbling up to
+              // the parent <div>'s onClick, which would select the tab.
+              // Without this, closing a tab would also activate it first.
               e.stopPropagation();
               onClose(ws.id);
             }}

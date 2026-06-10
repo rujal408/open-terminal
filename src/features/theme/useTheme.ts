@@ -6,6 +6,13 @@ import { loadSettingsOnce } from "../settings/useSettings";
 
 const BUILTIN_THEMES: Theme[] = [darkTheme, lightTheme];
 
+/**
+ * Resolves a theme name to a Theme object. Resolution order:
+ *   1. Check built-in names ("dark" / "light") -- case-insensitive first char.
+ *   2. Search the user's custom themes loaded from the Rust backend.
+ *   3. If nothing matches (e.g. the saved name was deleted), fall back to
+ *      the OS color-scheme preference via matchMedia.
+ */
 function resolveTheme(name: string, custom: Theme[]): Theme {
   if (name === "dark" || name === "Dark") return darkTheme;
   if (name === "light" || name === "Light") return lightTheme;
@@ -18,11 +25,18 @@ function resolveTheme(name: string, custom: Theme[]): Theme {
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(darkTheme);
   const [customThemes, setCustomThemes] = useState<Theme[]>([]);
-  // Ref always points at latest custom themes so setTheme never has stale closure
+
+  // Ref always points at the latest custom themes list. setTheme (below)
+  // has an empty dep array so it keeps a stable identity and never
+  // re-renders consumers. Without the ref, setTheme would close over a
+  // stale `customThemes` value and fail to find newly loaded themes.
   const customRef = useRef(customThemes);
   customRef.current = customThemes;
 
-  // Load on mount
+  // Load saved settings and user-created custom themes from the Rust
+  // backend in parallel on first render. We use the useState initializer
+  // trick (runs synchronously during initial render, once) instead of
+  // useEffect to kick off the load before the first paint.
   const [_initialized] = useState(() => {
     Promise.all([
       loadSettingsOnce(),
@@ -30,6 +44,8 @@ export function useTheme() {
     ]).then(([settings, custom]) => {
       customRef.current = custom;
       setCustomThemes(custom);
+      // Resolve the saved theme name (e.g. "dark" or a custom name)
+      // against the loaded custom themes to get the full Theme object.
       setThemeState(resolveTheme(settings.theme, custom));
     });
     return true;

@@ -1,3 +1,8 @@
+// Renders a single terminal instance inside its container div and handles:
+// - Deferred attachment (waits one animation frame for CSS grid layout to settle)
+// - Drag-and-drop of file paths from the file tree onto the terminal
+// - Refitting when the tab becomes visible again after being hidden
+
 import { useRef, useEffect, useState, memo } from "react";
 import { useTerminal } from "./useTerminal";
 import type { Theme } from "../../types";
@@ -37,8 +42,11 @@ export const TerminalView = memo(function TerminalView({
 
   const [dragOver, setDragOver] = useState(false);
 
-  // Defer attach by one frame so the grid layout settles before
-  // heavy work (WebGL context, PTY spawn) runs
+  // Defer attach by one animation frame so the CSS grid/flexbox layout has
+  // fully resolved the container's dimensions before we do expensive work
+  // (creating a WebGL context, measuring cols/rows, spawning the PTY).
+  // Without this delay, FitAddon.fit() would measure a 0x0 container and
+  // spawn a terminal with 0 columns.
   useEffect(() => {
     let rafId: number;
     const container = containerRef.current;
@@ -54,10 +62,13 @@ export const TerminalView = memo(function TerminalView({
     };
   }, [attach]);
 
-  // When tab becomes visible again, refit terminal (it had display:none, dimensions were 0)
+  // When a tab becomes active again, the container transitions from
+  // display:none to display:block (see App.tsx). While hidden, the container
+  // had 0x0 dimensions, so the terminal's internal grid is stale. We refit
+  // after one frame to let the browser compute the new layout, then
+  // recalculate cols/rows to match the actual container size.
   useEffect(() => {
     if (isActive) {
-      // Small delay to let the browser layout the now-visible container
       const id = requestAnimationFrame(() => {
         refit();
       });
@@ -75,6 +86,11 @@ export const TerminalView = memo(function TerminalView({
     setDragOver(false);
   }
 
+  // Handle file drops from the file tree sidebar. The file tree sets both
+  // "absolute-path" and "relative-path" on the drag data. We pick whichever
+  // the user configured in settings. Paths with spaces are quoted so the
+  // shell treats them as a single argument. The text is injected into the
+  // PTY as raw keystrokes, so it appears at the cursor as if the user typed it.
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);

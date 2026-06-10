@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { GitStatusInfo, GitBranchEntry } from "../../types";
 
+/** How often (ms) we poll the Rust backend for updated git status. */
 const POLL_INTERVAL = 2000;
 
 const EMPTY_STATUS: GitStatusInfo = {
@@ -16,9 +17,18 @@ const EMPTY_STATUS: GitStatusInfo = {
   conflicted: [],
 };
 
+/**
+ * Polls git status for `projectPath` every 2 seconds and exposes the
+ * result plus action helpers (stage, unstage, discard, commit, etc.).
+ * Pass `null` to disable polling (e.g. before the workspace is ready).
+ */
 export function useGitStatus(projectPath: string | null) {
   const [status, setStatus] = useState<GitStatusInfo>(EMPTY_STATUS);
   const [branches, setBranches] = useState<GitBranchEntry[]>([]);
+
+  // Guards against calling setState after the component unmounts.
+  // The polling interval may fire between unmount and clearInterval,
+  // and the invoke Promise may resolve after unmount.
   const mountedRef = useRef(true);
 
   const refresh = useCallback(async () => {
@@ -45,7 +55,10 @@ export function useGitStatus(projectPath: string | null) {
     }
   }, [projectPath]);
 
-  // Poll git status
+  // Start polling: fetch once immediately, then every POLL_INTERVAL ms.
+  // When `refresh` changes identity (because projectPath changed), the
+  // cleanup runs, sets mountedRef to false (preventing stale setStatus
+  // calls from the old path), and clears the old interval.
   useEffect(() => {
     mountedRef.current = true;
     refresh();
@@ -114,8 +127,22 @@ export function useGitStatus(projectPath: string | null) {
     [projectPath, refresh, refreshBranches]
   );
 
-  // Build a stable map of absolute path → status string, and a set of dirty parent dirs.
-  // Memoized so FileTree (memo'd) doesn't re-render when poll returns identical data.
+  // Derive two lookup structures from the flat status arrays for FileTree:
+  //
+  //   statusMap: Map<absoluteFilePath, statusString>
+  //     Used by FileTreeNode to color individual file names (e.g. green for
+  //     staged, yellow for modified).
+  //
+  //   dirtyDirs: Set<absoluteDirPath>
+  //     For every changed file, we walk up the path and mark each ancestor
+  //     directory as "dirty". FileTree uses this to show a dot/indicator on
+  //     parent folders that contain changes somewhere inside them. The inner
+  //     loop short-circuits (`if (dirs.has(parent)) break`) because if a
+  //     directory is already marked, all its ancestors must be too.
+  //
+  // Both are memoized on `status` so that when the poll returns identical
+  // data, FileTree (which is memo'd) gets the same object references and
+  // skips re-rendering.
   const { statusMap, dirtyDirs } = useMemo(() => {
     const map = new Map<string, string>();
     const dirs = new Set<string>();

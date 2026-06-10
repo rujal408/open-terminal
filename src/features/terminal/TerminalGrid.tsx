@@ -1,3 +1,14 @@
+// Arranges one or more terminal panes in a resizable grid layout.
+// Uses react-resizable-panels to let users drag separators between terminals.
+//
+// Grid layout strategy: approximate a square grid.
+//   cols = ceil(sqrt(count))   — e.g. 4 panes → 2 cols
+//   rows = ceil(count / cols)  — e.g. 4 panes → 2 rows
+// This gives: 1→1x1, 2→2x1, 3→2x2 (one cell empty), 4→2x2, 5→3x2, etc.
+//
+// When there is only a single terminal, it renders without any Panel/Group
+// wrappers to avoid unnecessary DOM overhead and ResizeObserver registrations.
+
 import { Fragment, useCallback, memo } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { invoke } from "@tauri-apps/api/core";
@@ -22,6 +33,8 @@ export const TerminalGrid = memo(function TerminalGrid({
   isActive,
   onPanesChange,
 }: TerminalGridProps) {
+  // Calculate grid dimensions — aim for a roughly square arrangement.
+  // Examples: 1 pane → 1x1, 2 → 2x1, 3 → 2x2, 4 → 2x2, 6 → 3x2, 9 → 3x3
   const count = panes.length;
   const cols = Math.ceil(Math.sqrt(count));
   const rows = Math.ceil(count / cols);
@@ -43,12 +56,16 @@ export const TerminalGrid = memo(function TerminalGrid({
     [panes, onPanesChange]
   );
 
-  // Split panes into rows
+  // Chunk the flat pane array into rows of `cols` width for the nested
+  // Group structure below (vertical outer group → horizontal inner groups).
   const rowPanes: TerminalPane[][] = [];
   for (let r = 0; r < rows; r++) {
     rowPanes.push(panes.slice(r * cols, Math.min((r + 1) * cols, count)));
   }
 
+  // Renders a single terminal pane with an overlay close button.
+  // The close button only appears when there are multiple panes (you can't
+  // close the last terminal), and uses CSS group-hover to show on mouseover.
   function renderPane(pane: TerminalPane) {
     return (
       <div className="group relative overflow-hidden h-full w-full bg-app">
@@ -107,9 +124,18 @@ export const TerminalGrid = memo(function TerminalGrid({
         </span>
       </div>
       <div className="flex-1 overflow-hidden">
+        {/* Single pane: render directly without Panel/Group wrappers to avoid
+            unnecessary ResizeObserver overhead and DOM complexity. */}
         {count === 1 ? (
           renderPane(panes[0])
         ) : (
+          /* Multi-pane layout uses nested resizable groups:
+             - Outer Group (vertical): splits the grid into rows, separated by
+               horizontal drag handles.
+             - Inner Group (horizontal): splits each row into columns, separated
+               by vertical drag handles.
+             This nesting lets users resize both row heights and column widths
+             independently by dragging the separators. */
           <Group orientation="vertical">
             {rowPanes.map((row, ri) => (
               <Fragment key={ri}>
