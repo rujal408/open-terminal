@@ -62,7 +62,7 @@ export const FileTreeNode = memo(function FileTreeNode({
       if (event.payload.parent === entry.path && expandedRef.current) {
         invoke<DirEntry[]>("list_directory", { path: entry.path }).then(
           (result) => {
-            setChildren(result.filter((e) => !e.is_hidden));
+            setChildren(result);
           }
         );
       }
@@ -79,7 +79,7 @@ export const FileTreeNode = memo(function FileTreeNode({
       const entries = await invoke<DirEntry[]>("list_directory", {
         path: entry.path,
       });
-      setChildren(entries.filter((e) => !e.is_hidden));
+      setChildren(entries);
       setLoaded(true);
     }
     setExpanded((prev) => !prev);

@@ -37,7 +37,7 @@ export const FileTree = memo(function FileTree({
   useEffect(() => {
     invoke<DirEntry[]>("list_directory", { path: projectPath }).then(
       (result) => {
-        setEntries(result.filter((e) => !e.is_hidden));
+        setEntries(result);
       }
     );
   }, [projectPath, refreshKey]);

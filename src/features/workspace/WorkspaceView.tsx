@@ -82,6 +82,34 @@ export const WorkspaceView = memo(function WorkspaceView({
     []
   );
 
+  // Listen for menu bar events
+  useEffect(() => {
+    if (!isActive) return;
+
+    function handleSidebar(e: Event) {
+      const tab = (e as CustomEvent).detail as "files" | "git";
+      setSidebarTab(tab);
+    }
+
+    function handleSplitTerminal() {
+      const id = crypto.randomUUID();
+      onChangeRef.current({
+        ...workspaceRef.current,
+        terminalPanes: [
+          ...workspaceRef.current.terminalPanes,
+          { id, ptyId: id },
+        ],
+      });
+    }
+
+    window.addEventListener("menu:sidebar", handleSidebar);
+    window.addEventListener("menu:split-terminal", handleSplitTerminal);
+    return () => {
+      window.removeEventListener("menu:sidebar", handleSidebar);
+      window.removeEventListener("menu:split-terminal", handleSplitTerminal);
+    };
+  }, [isActive]);
+
   const changesCount =
     git.status.staged.length +
     git.status.modified.length +

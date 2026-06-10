@@ -104,3 +104,51 @@ pub fn remove_recent_project(project_path: String) -> Result<(), String> {
     let json = serde_json::to_string_pretty(&projects).map_err(|e| e.to_string())?;
     fs::write(path, json).map_err(|e| e.to_string())
 }
+
+// ── Custom themes ──────────────────────────────────────────────────────
+
+/// A custom theme is stored as raw JSON (serde_json::Value) so the Rust
+/// side doesn't need to mirror every frontend color field.
+#[tauri::command]
+pub fn load_custom_themes() -> Vec<serde_json::Value> {
+    let path = config_dir().join("custom-themes.json");
+    match fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+#[tauri::command]
+pub fn save_custom_theme(theme: serde_json::Value) -> Result<(), String> {
+    let name = theme
+        .get("name")
+        .and_then(|v| v.as_str())
+        .ok_or("theme must have a name")?
+        .to_string();
+
+    let dir = ensure_config_dir();
+    let path = dir.join("custom-themes.json");
+    let mut themes: Vec<serde_json::Value> = load_custom_themes();
+
+    // Replace existing theme with same name, or append
+    if let Some(pos) = themes.iter().position(|t| {
+        t.get("name").and_then(|v| v.as_str()) == Some(&name)
+    }) {
+        themes[pos] = theme;
+    } else {
+        themes.push(theme);
+    }
+
+    let json = serde_json::to_string_pretty(&themes).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_custom_theme(name: String) -> Result<(), String> {
+    let dir = ensure_config_dir();
+    let path = dir.join("custom-themes.json");
+    let mut themes: Vec<serde_json::Value> = load_custom_themes();
+    themes.retain(|t| t.get("name").and_then(|v| v.as_str()) != Some(&name));
+    let json = serde_json::to_string_pretty(&themes).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())
+}

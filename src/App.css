@@ -27,6 +27,17 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* Force native form controls (select, option) to use our theme colors */
+select, option {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+input, textarea {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
 /* CodeMirror height fill */
 .editor-body .cm-editor {
   height: 100%;
@@ -48,4 +59,100 @@ html, body, #root {
 .terminal-drag-over {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* Terminal resizable panel handles */
+.terminal-resize-handle {
+  background: var(--border);
+  transition: background 0.15s;
+}
+.terminal-resize-handle:hover,
+.terminal-resize-handle[data-state="drag"] {
+  background: var(--accent);
+}
+.terminal-resize-handle-v {
+  width: 2px !important;
+  cursor: col-resize;
+}
+.terminal-resize-handle-h {
+  height: 2px !important;
+  cursor: row-resize;
+}
+
+/* Menu bar */
+.menu-bar {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 0;
+  padding-left: 4px;
+}
+
+.menu-item-wrapper {
+  position: relative;
+}
+
+.menu-trigger {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.menu-trigger:hover,
+.menu-trigger.active {
+  background: var(--border);
+  color: var(--text);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  background: var(--sidebar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.menu-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.menu-dropdown-item:hover {
+  background: var(--accent);
+  color: white;
+}
+
+.menu-shortcut {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 24px;
+}
+
+.menu-dropdown-item:hover .menu-shortcut {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 8px;
 }

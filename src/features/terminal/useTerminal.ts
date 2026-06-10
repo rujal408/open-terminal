@@ -110,6 +110,60 @@ export function useTerminal({
 
       fitAddon.fit();
 
+      // Clipboard copy/paste: intercept Ctrl+C, Ctrl+V, Ctrl+Shift+C/V
+      // so they behave like VS Code's integrated terminal.
+      term.attachCustomKeyEventHandler((ev) => {
+        const isCtrl = ev.ctrlKey || ev.metaKey;
+
+        // Ctrl+Shift+C — always copy selection
+        if (isCtrl && ev.shiftKey && ev.key === "C" && ev.type === "keydown") {
+          const sel = term.getSelection();
+          if (sel) navigator.clipboard.writeText(sel);
+          return false; // prevent xterm from processing
+        }
+
+        // Ctrl+Shift+V — always paste
+        if (isCtrl && ev.shiftKey && ev.key === "V" && ev.type === "keydown") {
+          ev.preventDefault();
+          navigator.clipboard.readText().then((text) => {
+            if (text) {
+              invoke("write_pty", {
+                ptyId,
+                data: Array.from(new TextEncoder().encode(text)),
+              });
+            }
+          });
+          return false;
+        }
+
+        // Ctrl+C — copy if there's a selection, otherwise let xterm send SIGINT
+        if (isCtrl && !ev.shiftKey && ev.key === "c" && ev.type === "keydown") {
+          if (term.hasSelection()) {
+            navigator.clipboard.writeText(term.getSelection());
+            term.clearSelection();
+            return false;
+          }
+          // No selection → let it pass through as SIGINT
+          return true;
+        }
+
+        // Ctrl+V — paste from clipboard
+        if (isCtrl && !ev.shiftKey && ev.key === "v" && ev.type === "keydown") {
+          ev.preventDefault();
+          navigator.clipboard.readText().then((text) => {
+            if (text) {
+              invoke("write_pty", {
+                ptyId,
+                data: Array.from(new TextEncoder().encode(text)),
+              });
+            }
+          });
+          return false;
+        }
+
+        return true; // all other keys pass through normally
+      });
+
       // Register input handler (keystrokes → PTY)
       onDataDisposableRef.current = term.onData((data) => {
         invoke("write_pty", {

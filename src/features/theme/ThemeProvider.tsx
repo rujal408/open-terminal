@@ -5,12 +5,23 @@ import { useTheme } from "./useTheme";
 interface ThemeContextValue {
   theme: Theme;
   setTheme: (name: string) => void;
+  setThemeObject: (t: Theme) => void;
+  customThemes: Theme[];
+  allThemes: Theme[];
+  reloadCustomThemes: () => Promise<Theme[]>;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, setTheme } = useTheme();
+  const {
+    theme,
+    setTheme,
+    setThemeObject,
+    customThemes,
+    allThemes,
+    reloadCustomThemes,
+  } = useTheme();
 
   // Side effect: sync CSS custom properties to document root
   useEffect(() => {
@@ -32,9 +43,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--git-deleted", c.gitDeleted);
     root.style.setProperty("--git-untracked", c.gitUntracked);
     root.style.setProperty("--git-conflicted", c.gitConflicted);
+    // Tell the browser which color scheme native controls should use
+    root.style.colorScheme = theme.type;
   }, [theme]);
 
-  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+  const value = useMemo(
+    () => ({
+      theme,
+      setTheme,
+      setThemeObject,
+      customThemes,
+      allThemes,
+      reloadCustomThemes,
+    }),
+    [theme, setTheme, setThemeObject, customThemes, allThemes, reloadCustomThemes]
+  );
 
   return (
     <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

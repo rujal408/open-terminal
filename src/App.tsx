@@ -1,7 +1,9 @@
 import { useState, useCallback, useTransition } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { v4 as uuidv4 } from "uuid";
 import { ThemeProvider, useThemeContext } from "./features/theme/ThemeProvider";
+import { MenuBar } from "./features/menu/MenuBar";
 import { TabBar } from "./features/tabs/TabBar";
 import { WelcomeScreen } from "./features/tabs/WelcomeScreen";
 import { WorkspaceView } from "./features/workspace/WorkspaceView";
@@ -32,7 +34,7 @@ function AppContent() {
   const { settings, updateSettings } = useSettings();
   const [isPending, startTransition] = useTransition();
 
-  const activeWorkspace = workspaces.find((ws) => ws.id === activeId)!;
+  const activeWorkspace = workspaces.find((ws) => ws.id === activeId) ?? workspaces[0];
 
   const handleNew = useCallback(() => {
     const ws = createWorkspace();
@@ -42,26 +44,26 @@ function AppContent() {
 
   const handleClose = useCallback(
     (id: string) => {
-      setWorkspaces((prev) => {
-        const closing = prev.find((ws) => ws.id === id);
-        if (closing) {
-          closing.terminalPanes.forEach((pane) =>
-            invoke("kill_pty", { ptyId: pane.ptyId }).catch(() => {})
-          );
-        }
-        const next = prev.filter((ws) => ws.id !== id);
-        if (next.length === 0) {
-          const ws = createWorkspace();
-          setActiveId(ws.id);
-          return [ws];
-        }
+      const closing = workspaces.find((ws) => ws.id === id);
+      if (closing) {
+        closing.terminalPanes.forEach((pane) =>
+          invoke("kill_pty", { ptyId: pane.ptyId }).catch(() => {})
+        );
+      }
+
+      const remaining = workspaces.filter((ws) => ws.id !== id);
+      if (remaining.length === 0) {
+        const ws = createWorkspace();
+        setWorkspaces([ws]);
+        setActiveId(ws.id);
+      } else {
+        setWorkspaces(remaining);
         if (id === activeId) {
-          setActiveId(next[next.length - 1].id);
+          setActiveId(remaining[remaining.length - 1].id);
         }
-        return next;
-      });
+      }
     },
-    [activeId]
+    [workspaces, activeId]
   );
 
   const handleReorder = useCallback((from: number, to: number) => {
@@ -107,8 +109,33 @@ function AppContent() {
   const handleSettingsClose = useCallback(() => setShowSettings(false), []);
   const handleSettingsOpen = useCallback(() => setShowSettings(true), []);
 
+  const handleOpenFolder = useCallback(async () => {
+    const selected = await open({ directory: true, multiple: false });
+    if (selected) {
+      handleOpenProject(selected as string);
+    }
+  }, [handleOpenProject]);
+
+  const handleCloseActive = useCallback(() => {
+    handleClose(activeId);
+  }, [handleClose, activeId]);
+
   return (
     <div className="flex flex-col h-full bg-app text-primary">
+      <div className="flex items-center bg-tab-bar border-b border-border h-8 shrink-0 px-1">
+        <MenuBar
+          onOpenFolder={handleOpenFolder}
+          onNewTab={handleNew}
+          onCloseTab={handleCloseActive}
+          onOpenSettings={handleSettingsOpen}
+        />
+        <button
+          className="bg-transparent border-none text-muted cursor-pointer text-base px-2.5 ml-auto h-full hover:text-primary"
+          onClick={handleSettingsOpen}
+        >
+          ⚙
+        </button>
+      </div>
       <div className="flex items-center bg-tab-bar border-b border-border h-9 shrink-0">
         <TabBar
           workspaces={workspaces}
@@ -118,12 +145,6 @@ function AppContent() {
           onNew={handleNew}
           onReorder={handleReorder}
         />
-        <button
-          className="bg-transparent border-none text-muted cursor-pointer text-base px-2.5 ml-auto h-full hover:text-primary"
-          onClick={handleSettingsOpen}
-        >
-          ⚙
-        </button>
       </div>
       <div className="flex-1 overflow-hidden relative">
         {activeWorkspace.projectPath === null && (
