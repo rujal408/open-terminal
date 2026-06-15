@@ -136,10 +136,19 @@ pub fn remove_recent_project(project_path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn load_custom_themes() -> Vec<serde_json::Value> {
     let path = config_dir().join("custom-themes.json");
-    match fs::read_to_string(&path) {
+    let themes: Vec<serde_json::Value> = match fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(_) => Vec::new(),
-    }
+    };
+    // Filter out any themes that share a name with built-in themes
+    themes
+        .into_iter()
+        .filter(|t| {
+            let name = t.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let lower = name.to_lowercase();
+            lower != "dark" && lower != "light"
+        })
+        .collect()
 }
 
 #[tauri::command]
@@ -149,6 +158,12 @@ pub fn save_custom_theme(theme: serde_json::Value) -> Result<(), String> {
         .and_then(|v| v.as_str())
         .ok_or("theme must have a name")?
         .to_string();
+
+    // Reject built-in theme names
+    let lower = name.to_lowercase();
+    if lower == "dark" || lower == "light" {
+        return Err("Cannot overwrite built-in theme".into());
+    }
 
     let dir = ensure_config_dir();
     let path = dir.join("custom-themes.json");
