@@ -124,49 +124,36 @@ export const TerminalGrid = memo(function TerminalGrid({
         </span>
       </div>
       <div className="flex-1 overflow-hidden">
-        {/* Single pane: render directly without Panel/Group wrappers to avoid
-            unnecessary ResizeObserver overhead and DOM complexity. */}
-        {count === 1 ? (
-          renderPane(panes[0])
-        ) : (
-          /* Multi-pane layout uses nested resizable groups:
-             - Outer Group (vertical): splits the grid into rows, separated by
-               horizontal drag handles.
-             - Inner Group (horizontal): splits each row into columns, separated
-               by vertical drag handles.
-             This nesting lets users resize both row heights and column widths
-             independently by dragging the separators. */
-          <Group orientation="vertical">
-            {rowPanes.map((row, ri) => (
-              <Fragment key={ri}>
-                {ri > 0 && (
-                  <Separator className="terminal-resize-handle terminal-resize-handle-h" />
-                )}
-                <Panel minSize={15} style={{ overflow: "hidden" }}>
-                  {row.length === 1 ? (
-                    renderPane(row[0])
-                  ) : (
-                    <Group orientation="horizontal">
-                      {row.map((pane, ci) => (
-                        <Fragment key={pane.id}>
-                          {ci > 0 && (
-                            <Separator className="terminal-resize-handle terminal-resize-handle-v" />
-                          )}
-                          <Panel
-                            minSize={15}
-                            style={{ overflow: "hidden" }}
-                          >
-                            {renderPane(pane)}
-                          </Panel>
-                        </Fragment>
-                      ))}
-                    </Group>
-                  )}
-                </Panel>
-              </Fragment>
-            ))}
-          </Group>
-        )}
+        {/* Always render through the full Group/Panel structure so the React
+            tree stays consistent when panes are added or removed. This prevents
+            existing TerminalView components from unmounting (which would kill
+            the PTY connection and reset the working directory). */}
+        <Group orientation="vertical">
+          {rowPanes.map((row, ri) => (
+            <Fragment key={ri}>
+              {ri > 0 && (
+                <Separator className="terminal-resize-handle terminal-resize-handle-h" />
+              )}
+              <Panel minSize={15} style={{ overflow: "hidden" }}>
+                <Group orientation="horizontal">
+                  {row.map((pane, ci) => (
+                    <Fragment key={pane.id}>
+                      {ci > 0 && (
+                        <Separator className="terminal-resize-handle terminal-resize-handle-v" />
+                      )}
+                      <Panel
+                        minSize={15}
+                        style={{ overflow: "hidden" }}
+                      >
+                        {renderPane(pane)}
+                      </Panel>
+                    </Fragment>
+                  ))}
+                </Group>
+              </Panel>
+            </Fragment>
+          ))}
+        </Group>
       </div>
     </div>
   );
