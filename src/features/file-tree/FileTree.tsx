@@ -31,7 +31,7 @@ interface FileTreeProps {
   workspaceId: string;
   onFileClick: (path: string) => void;
   gitStatusMap?: Map<string, string>;
-  gitDirtyDirs?: Set<string>;
+  gitDirtyDirs?: Map<string, string>;
 }
 
 interface FsChangeEvent {

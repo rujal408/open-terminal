@@ -44,7 +44,7 @@ interface FileTreeNodeProps {
   selectedPath: string | null;
   cutPath: string | null;
   gitStatusMap?: Map<string, string>;
-  gitDirtyDirs?: Set<string>;
+  gitDirtyDirs?: Map<string, string>;
 }
 
 export const FileTreeNode = memo(function FileTreeNode({
@@ -199,18 +199,18 @@ export const FileTreeNode = memo(function FileTreeNode({
 
   // Git status for this file
   const gitStatus = gitStatusMap?.get(entry.path);
-  // For directories: O(1) lookup in precomputed set
-  const dirHasChanges = entry.is_dir && (gitDirtyDirs?.has(entry.path) ?? false);
+  // For directories: look up the dominant child status from the precomputed map
+  const dirStatus = entry.is_dir ? gitDirtyDirs?.get(entry.path) : undefined;
   const nameColor =
     gitStatus
       ? GIT_STATUS_COLOR[gitStatus]
-      : dirHasChanges
-        ? "var(--git-modified)"
+      : dirStatus
+        ? GIT_STATUS_COLOR[dirStatus] ?? "var(--git-modified)"
         : undefined;
 
   const isSelected = selectedPath === entry.path;
   const isCut = cutPath === entry.path;
-  const isIgnored = gitStatus === "ignored";
+  const isIgnored = gitStatus === "ignored" || dirStatus === "ignored";
 
   return (
     <>

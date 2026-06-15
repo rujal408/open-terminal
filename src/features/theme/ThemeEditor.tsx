@@ -59,6 +59,7 @@ const COLOR_GROUPS: { label: string; fields: { key: string; label: string }[] }[
       { key: "gitModified", label: "Modified" },
       { key: "gitDeleted", label: "Deleted" },
       { key: "gitUntracked", label: "Untracked" },
+      { key: "gitIgnored", label: "Ignored" },
       { key: "gitConflicted", label: "Conflicted" },
     ],
   },

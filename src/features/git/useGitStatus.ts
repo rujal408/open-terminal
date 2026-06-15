@@ -134,30 +134,44 @@ export function useGitStatus(projectPath: string | null) {
   //     Used by FileTreeNode to color individual file names (e.g. green for
   //     staged, yellow for modified).
   //
-  //   dirtyDirs: Set<absoluteDirPath>
+  //   dirtyDirs: Map<absoluteDirPath, statusString>
   //     For every changed file, we walk up the path and mark each ancestor
-  //     directory as "dirty". FileTree uses this to show a dot/indicator on
-  //     parent folders that contain changes somewhere inside them. The inner
-  //     loop short-circuits (`if (dirs.has(parent)) break`) because if a
-  //     directory is already marked, all its ancestors must be too.
+  //     directory with the dominant child status. Higher-priority statuses
+  //     (conflicted > modified > staged > untracked) override lower ones.
+  //     "ignored" is lowest — a directory only shows as ignored when ALL
+  //     its changed children are ignored.
   //
   // Both are memoized on `status` so that when the poll returns identical
   // data, FileTree (which is memo'd) gets the same object references and
   // skips re-rendering.
+  const STATUS_PRIORITY: Record<string, number> = {
+    ignored: 0,
+    untracked: 1,
+    staged: 2,
+    modified: 3,
+    conflicted: 4,
+  };
+
   const { statusMap, dirtyDirs } = useMemo(() => {
     const map = new Map<string, string>();
-    const dirs = new Set<string>();
+    const dirs = new Map<string, string>();
     if (status.is_repo) {
       const addEntry = (path: string, st: string) => {
         map.set(path, st);
-        // Mark every ancestor directory as dirty
+        const priority = STATUS_PRIORITY[st] ?? 1;
+        // Walk up and mark ancestor directories with the dominant status
         let parent = path;
         while (true) {
           const slash = parent.lastIndexOf("/");
           if (slash <= 0) break;
           parent = parent.substring(0, slash);
-          if (dirs.has(parent)) break; // ancestors already marked
-          dirs.add(parent);
+          const existing = dirs.get(parent);
+          if (existing !== undefined) {
+            const existingPriority = STATUS_PRIORITY[existing] ?? 1;
+            if (priority <= existingPriority) break; // existing is same or higher, stop
+            // Upgrade this dir and continue to update ancestors
+          }
+          dirs.set(parent, st);
         }
       };
       for (const f of status.staged) addEntry(f.path, "staged");
