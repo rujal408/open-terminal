@@ -8,9 +8,9 @@ import { json } from "@codemirror/lang-json";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { markdown } from "@codemirror/lang-markdown";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { invoke } from "@tauri-apps/api/core";
 import { FileIcon } from "../file-tree/FileIcon";
+import { buildEditorTheme } from "./editorTheme";
 import type { EditorPanel, Theme } from "../../types";
 
 function languageFromPath(path: string) {
@@ -72,7 +72,7 @@ function EditorTabContent({
     const extensions = [
       basicSetup,
       languageFromPath(panel.filePath),
-      theme.type === "dark" ? oneDark : [],
+      buildEditorTheme(theme),
       EditorView.updateListener.of((update: ViewUpdate) => {
         if (update.docChanged) {
           onDirtyChangeRef.current(panel.id, true);
@@ -118,12 +118,217 @@ function EditorTabContent({
   );
 }
 
+// --- EditorTabBar: shows visible tabs + overflow dropdown ---
+
+const TAB_WIDTH = 140; // approximate width per tab in px
+const CONTROLS_WIDTH = 70; // maximize btn + overflow btn + padding
+const OVERFLOW_BTN_WIDTH = 32;
+
+interface EditorTabBarProps {
+  editors: EditorPanel[];
+  activeTabId: string | null;
+  maximized: boolean;
+  onTabChange: (id: string) => void;
+  onCloseTab: (id: string) => void;
+  onToggleMaximize: () => void;
+  onTabBarMouseDown: ((e: React.MouseEvent) => void) | undefined;
+}
+
+function EditorTabBar({
+  editors,
+  activeTabId,
+  maximized,
+  onTabChange,
+  onCloseTab,
+  onToggleMaximize,
+  onTabBarMouseDown,
+}: EditorTabBarProps) {
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const [maxVisibleTabs, setMaxVisibleTabs] = useState(editors.length);
+  const [showOverflow, setShowOverflow] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
+
+  // Measure available width and compute how many tabs fit
+  useEffect(() => {
+    function measure() {
+      if (!tabBarRef.current) return;
+      const barWidth = tabBarRef.current.clientWidth;
+      const available = barWidth - CONTROLS_WIDTH;
+      // Reserve space for the overflow button if not all tabs fit
+      const fittable = Math.floor(available / TAB_WIDTH);
+      if (fittable >= editors.length) {
+        setMaxVisibleTabs(editors.length);
+      } else {
+        // Account for the overflow button taking space
+        const adjustedAvailable = available - OVERFLOW_BTN_WIDTH;
+        setMaxVisibleTabs(Math.max(1, Math.floor(adjustedAvailable / TAB_WIDTH)));
+      }
+    }
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (tabBarRef.current) observer.observe(tabBarRef.current);
+    return () => observer.disconnect();
+  }, [editors.length]);
+
+  // Close overflow dropdown when clicking outside
+  useEffect(() => {
+    if (!showOverflow) return;
+    function handleClick(e: MouseEvent) {
+      if (overflowRef.current && !overflowRef.current.contains(e.target as Node)) {
+        setShowOverflow(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showOverflow]);
+
+  // Ensure active tab is always visible: if it would be in the overflow,
+  // rearrange so it appears in the visible set.
+  const activeIdx = editors.findIndex((e) => e.id === activeTabId);
+  let visibleEditors: EditorPanel[];
+  let overflowEditors: EditorPanel[];
+
+  if (maxVisibleTabs >= editors.length) {
+    visibleEditors = editors;
+    overflowEditors = [];
+  } else {
+    // If active tab is beyond the visible range, swap it into the last visible slot
+    const visible = editors.slice(0, maxVisibleTabs);
+    const overflow = editors.slice(maxVisibleTabs);
+
+    if (activeIdx >= maxVisibleTabs) {
+      // Replace the last visible tab with the active one
+      const activePanel = editors[activeIdx];
+      const displaced = visible[maxVisibleTabs - 1];
+      visible[maxVisibleTabs - 1] = activePanel;
+      // Put displaced tab into overflow in its natural order
+      const overflowWithDisplaced = [...overflow.filter((e) => e.id !== activePanel.id), displaced];
+      visibleEditors = visible;
+      overflowEditors = overflowWithDisplaced;
+    } else {
+      visibleEditors = visible;
+      overflowEditors = overflow;
+    }
+  }
+
+  const hasOverflow = overflowEditors.length > 0;
+
+  return (
+    <div
+      ref={tabBarRef}
+      className="flex items-center bg-tab-bar border-b border-border select-none cursor-grab active:cursor-grabbing"
+      onMouseDown={onTabBarMouseDown}
+    >
+      {/* Visible tabs */}
+      <div className="flex-1 flex overflow-hidden">
+        {visibleEditors.map((panel) => {
+          const fileName = panel.filePath.split("/").pop() || "";
+          const isActive = panel.id === activeTabId;
+          return (
+            <div
+              key={panel.id}
+              data-tab-button
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] cursor-pointer border-r border-border shrink-0 ${
+                isActive
+                  ? "bg-editor text-primary border-t-2 border-t-accent"
+                  : "bg-tab-bar text-muted hover:bg-tab-active border-t-2 border-t-transparent"
+              }`}
+              style={{ width: TAB_WIDTH, maxWidth: TAB_WIDTH }}
+              onClick={() => onTabChange(panel.id)}
+            >
+              {panel.isDirty && (
+                <span className="text-accent text-[10px] shrink-0">●</span>
+              )}
+              <FileIcon name={fileName} isDir={false} />
+              <span className="truncate flex-1">{fileName}</span>
+              <button
+                className="ml-auto bg-transparent border-none text-muted cursor-pointer text-sm px-0.5 leading-none hover:text-danger shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseTab(panel.id);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Overflow dropdown + panel controls */}
+      <div
+        className="flex items-center gap-0.5 px-1.5 shrink-0"
+        data-panel-control
+      >
+        {hasOverflow && (
+          <div className="relative" ref={overflowRef}>
+            <button
+              data-tab-button
+              className="bg-transparent border-none text-muted cursor-pointer text-sm px-1.5 py-1 leading-none hover:text-primary hover:bg-border rounded"
+              onClick={() => setShowOverflow((prev) => !prev)}
+              title={`${overflowEditors.length} more tab${overflowEditors.length > 1 ? "s" : ""}`}
+            >
+              ⋯
+            </button>
+            {showOverflow && (
+              <div
+                className="absolute right-0 top-full mt-1 min-w-[200px] max-w-[300px] max-h-[320px] overflow-y-auto bg-sidebar border border-border rounded-lg shadow-2xl py-1"
+                style={{ zIndex: 10000 }}
+              >
+                {overflowEditors.map((panel) => {
+                  const fileName = panel.filePath.split("/").pop() || "";
+                  const isActive = panel.id === activeTabId;
+                  return (
+                    <div
+                      key={panel.id}
+                      className={`flex items-center gap-2 px-3 py-1.5 text-[13px] cursor-pointer hover:bg-border ${
+                        isActive ? "text-primary bg-editor" : "text-muted"
+                      }`}
+                      onClick={() => {
+                        onTabChange(panel.id);
+                        setShowOverflow(false);
+                      }}
+                    >
+                      {panel.isDirty && (
+                        <span className="text-accent text-[10px] shrink-0">●</span>
+                      )}
+                      <FileIcon name={fileName} isDir={false} />
+                      <span className="truncate flex-1">{fileName}</span>
+                      <button
+                        className="bg-transparent border-none text-muted cursor-pointer text-sm px-0.5 leading-none hover:text-danger shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCloseTab(panel.id);
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        <button
+          className="bg-transparent border-none text-muted cursor-pointer text-sm px-1 leading-none hover:text-primary"
+          onClick={onToggleMaximize}
+          title={maximized ? "Restore" : "Maximize"}
+        >
+          {maximized ? "◱" : "◳"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Main TabbedEditorPanel ---
 
 interface TabbedEditorPanelProps {
   editors: EditorPanel[];
   activeTabId: string | null;
   theme: Theme;
+  sidebarWidth: number;
   onTabChange: (id: string) => void;
   onTabClose: (id: string) => void;
   onDirtyChange: (id: string, dirty: boolean) => void;
@@ -136,6 +341,7 @@ export function TabbedEditorPanel({
   editors,
   activeTabId,
   theme,
+  sidebarWidth,
   onTabChange,
   onTabClose,
   onDirtyChange,
@@ -143,14 +349,11 @@ export function TabbedEditorPanel({
   const viewsRef = useRef<Map<string, EditorView>>(new Map());
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Panel geometry
-  const [position, setPosition] = useState({ x: 200, y: 50 });
+  // Panel geometry — fixed positioning relative to the viewport so the panel
+  // escapes any ancestor overflow-hidden clipping (e.g. the content area).
+  const [position, setPosition] = useState({ x: 200, y: 120 });
   const [size, setSize] = useState({ width: 650, height: 450 });
   const [maximized, setMaximized] = useState(false);
-  const preMaxRef = useRef<{
-    position: typeof position;
-    size: typeof size;
-  } | null>(null);
 
   // Dragging
   const draggingRef = useRef(false);
@@ -293,37 +496,38 @@ export function TabbedEditorPanel({
   }
 
   // --- Maximize ---
+  // Toggles between normal (positioned) and maximized (fills content area).
+  // Position/size state is untouched so restoring is instant.
   function handleToggleMaximize() {
-    if (maximized) {
-      if (preMaxRef.current) {
-        setPosition(preMaxRef.current.position);
-        setSize(preMaxRef.current.size);
-      }
-      preMaxRef.current = null;
-      setMaximized(false);
-    } else {
-      preMaxRef.current = { position, size };
-      setPosition({ x: 0, y: 0 });
-      setSize({ width: 99999, height: 99999 });
-      setMaximized(true);
-    }
+    setMaximized((prev) => !prev);
   }
+
+  // Content area insets: icon rail (40) + sidebar content (sidebarWidth-40) + resize handle (4)
+  // Top: menu bar (32) + workspace tab bar (36) = 68
+  const contentLeft = sidebarWidth + 4;
+  const contentTop = 68;
 
   return (
     <div
       ref={panelRef}
-      className={`absolute bg-editor border border-border flex flex-col overflow-hidden shadow-2xl ${
+      className={`fixed bg-editor border border-border flex flex-col overflow-hidden shadow-2xl ${
         maximized ? "rounded-none" : "rounded-lg"
       }`}
       style={
         maximized
-          ? { left: 0, top: 0, width: "100%", height: "100%", zIndex: 500 }
+          ? {
+              left: contentLeft,
+              top: contentTop,
+              right: 0,
+              bottom: 0,
+              zIndex: 9999,
+            }
           : {
               left: position.x,
               top: position.y,
               width: size.width,
               height: size.height,
-              zIndex: 500,
+              zIndex: 9999,
             }
       }
     >
@@ -366,58 +570,15 @@ export function TabbedEditorPanel({
       )}
 
       {/* Tab bar — draggable by empty space */}
-      <div
-        className="flex items-center bg-tab-bar border-b border-border select-none cursor-grab active:cursor-grabbing"
-        onMouseDown={maximized ? undefined : handleTabBarMouseDown}
-      >
-        <div className="flex-1 flex overflow-x-auto tabs-scrollbar-hide">
-          {editors.map((panel) => {
-            const fileName = panel.filePath.split("/").pop() || "";
-            const isActive = panel.id === activeTabId;
-            return (
-              <div
-                key={panel.id}
-                data-tab-button
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] cursor-pointer border-r border-border shrink-0 max-w-[160px] ${
-                  isActive
-                    ? "bg-editor text-primary border-t-2 border-t-accent"
-                    : "bg-tab-bar text-muted hover:bg-tab-active border-t-2 border-t-transparent"
-                }`}
-                onClick={() => onTabChange(panel.id)}
-              >
-                {panel.isDirty && (
-                  <span className="text-accent text-[10px] shrink-0">●</span>
-                )}
-                <FileIcon name={fileName} isDir={false} />
-                <span className="truncate">{fileName}</span>
-                <button
-                  className="ml-auto bg-transparent border-none text-muted cursor-pointer text-sm px-0.5 leading-none hover:text-danger shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCloseTab(panel.id);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Panel controls */}
-        <div
-          className="flex items-center gap-1 px-2 shrink-0"
-          data-panel-control
-        >
-          <button
-            className="bg-transparent border-none text-muted cursor-pointer text-sm px-1 leading-none hover:text-primary"
-            onClick={handleToggleMaximize}
-            title={maximized ? "Restore" : "Maximize"}
-          >
-            {maximized ? "◱" : "◳"}
-          </button>
-        </div>
-      </div>
+      <EditorTabBar
+        editors={editors}
+        activeTabId={activeTabId}
+        maximized={maximized}
+        onTabChange={onTabChange}
+        onCloseTab={handleCloseTab}
+        onToggleMaximize={handleToggleMaximize}
+        onTabBarMouseDown={maximized ? undefined : handleTabBarMouseDown}
+      />
 
       {/* Editor area — one CodeMirror container per tab, only active visible */}
       <div className="flex-1 relative overflow-hidden">

@@ -32,6 +32,8 @@ pub struct GitStatusInfo {
     pub modified: Vec<GitFileEntry>,
     /// New files that git doesn't track yet
     pub untracked: Vec<GitFileEntry>,
+    /// Files matched by .gitignore rules
+    pub ignored: Vec<GitFileEntry>,
     /// Files with merge conflicts that need manual resolution
     pub conflicted: Vec<GitFileEntry>,
 }
@@ -65,6 +67,7 @@ pub fn git_status(project_path: String) -> Result<GitStatusInfo, String> {
                 staged: vec![],
                 modified: vec![],
                 untracked: vec![],
+                ignored: vec![],
                 conflicted: vec![],
             });
         }
@@ -95,13 +98,14 @@ pub fn git_status(project_path: String) -> Result<GitStatusInfo, String> {
     let mut opts = StatusOptions::new();
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
-        .include_ignored(false);
+        .include_ignored(true);
 
     let statuses = repo.statuses(Some(&mut opts)).map_err(|e| e.message().to_string())?;
 
     let mut staged = Vec::new();
     let mut modified = Vec::new();
     let mut untracked = Vec::new();
+    let mut ignored = Vec::new();
     let mut conflicted = Vec::new();
 
     let repo_root = repo.workdir().unwrap_or_else(|| Path::new(""));
@@ -120,7 +124,9 @@ pub fn git_status(project_path: String) -> Result<GitStatusInfo, String> {
         // against the file tree entries which also use absolute paths.
         let abs_path = repo_root.join(&path).to_string_lossy().to_string();
 
-        if st.contains(Status::CONFLICTED) {
+        if st.contains(Status::IGNORED) {
+            ignored.push(GitFileEntry { path: abs_path, status: "ignored".into() });
+        } else if st.contains(Status::CONFLICTED) {
             // Merge conflict — must be resolved before committing
             conflicted.push(GitFileEntry { path: abs_path, status: "conflicted".into() });
         } else if st.intersects(Status::INDEX_NEW | Status::INDEX_MODIFIED | Status::INDEX_DELETED | Status::INDEX_RENAMED | Status::INDEX_TYPECHANGE) {
@@ -169,6 +175,7 @@ pub fn git_status(project_path: String) -> Result<GitStatusInfo, String> {
         staged,
         modified,
         untracked,
+        ignored,
         conflicted,
     })
 }

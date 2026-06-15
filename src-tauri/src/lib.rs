@@ -44,6 +44,7 @@ pub fn run() {
             filesystem::create_file,
             filesystem::create_directory,
             filesystem::rename_entry,
+            filesystem::copy_entry,
             filesystem::delete_entry,
 
             // --- PTY: terminal emulation (spawn shells, send keystrokes) ---

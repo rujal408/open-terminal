@@ -53,6 +53,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.style.setProperty("--git-modified", c.gitModified);
     root.style.setProperty("--git-deleted", c.gitDeleted);
     root.style.setProperty("--git-untracked", c.gitUntracked);
+    root.style.setProperty("--git-ignored", c.gitIgnored);
     root.style.setProperty("--git-conflicted", c.gitConflicted);
     root.style.colorScheme = theme.type;
   }, [theme]);

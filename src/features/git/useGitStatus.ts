@@ -14,6 +14,7 @@ const EMPTY_STATUS: GitStatusInfo = {
   staged: [],
   modified: [],
   untracked: [],
+  ignored: [],
   conflicted: [],
 };
 
@@ -162,6 +163,7 @@ export function useGitStatus(projectPath: string | null) {
       for (const f of status.staged) addEntry(f.path, "staged");
       for (const f of status.modified) addEntry(f.path, f.status);
       for (const f of status.untracked) addEntry(f.path, "untracked");
+      for (const f of status.ignored) addEntry(f.path, "ignored");
       for (const f of status.conflicted) addEntry(f.path, "conflicted");
     }
     return { statusMap: map, dirtyDirs: dirs };

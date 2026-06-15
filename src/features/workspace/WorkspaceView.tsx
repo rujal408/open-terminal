@@ -254,6 +254,7 @@ export const WorkspaceView = memo(function WorkspaceView({
         editors={workspace.openEditors}
         activeEditorId={activeEditorId}
         theme={theme}
+        sidebarWidth={sidebarWidth}
         onEditorsChange={handleEditorsChange}
         onActiveEditorChange={setActiveEditorId}
       />

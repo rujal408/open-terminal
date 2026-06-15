@@ -94,6 +94,7 @@ export interface GitStatusInfo {
   staged: GitFileEntry[];
   modified: GitFileEntry[];
   untracked: GitFileEntry[];
+  ignored: GitFileEntry[];
   conflicted: GitFileEntry[];
 }
 
@@ -146,6 +147,7 @@ export interface Theme {
     gitModified: string;
     gitDeleted: string;
     gitUntracked: string;
+    gitIgnored: string;
     gitConflicted: string;
   };
 }

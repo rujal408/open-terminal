@@ -8,6 +8,7 @@ interface EditorManagerProps {
   editors: EditorPanel[];
   activeEditorId: string | null;
   theme: Theme;
+  sidebarWidth: number;
   onEditorsChange: (editors: EditorPanel[]) => void;
   onActiveEditorChange: (id: string | null) => void;
 }
@@ -16,6 +17,7 @@ export const EditorManager = memo(function EditorManager({
   editors,
   activeEditorId,
   theme,
+  sidebarWidth,
   onEditorsChange,
   onActiveEditorChange,
 }: EditorManagerProps) {
@@ -64,6 +66,7 @@ export const EditorManager = memo(function EditorManager({
       editors={editors}
       activeTabId={activeEditorId}
       theme={theme}
+      sidebarWidth={sidebarWidth}
       onTabChange={handleTabChange}
       onTabClose={handleTabClose}
       onDirtyChange={handleDirtyChange}

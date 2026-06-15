@@ -33,6 +33,7 @@ export const darkTheme: Theme = {
     gitModified: "#f9e2af",
     gitDeleted: "#f38ba8",
     gitUntracked: "#94e2d5",
+    gitIgnored: "#45475a",
     gitConflicted: "#fab387",
   },
 };
@@ -68,6 +69,7 @@ export const lightTheme: Theme = {
     gitModified: "#df8e1d",
     gitDeleted: "#d20f39",
     gitUntracked: "#179299",
+    gitIgnored: "#bcc0cc",
     gitConflicted: "#fe640b",
   },
 };

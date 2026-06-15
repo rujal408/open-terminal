@@ -25,6 +25,7 @@ const statusBadge: Record<string, { label: string; colorVar: string }> = {
   deleted: { label: "D", colorVar: "--git-deleted" },
   renamed: { label: "R", colorVar: "--git-modified" },
   untracked: { label: "U", colorVar: "--git-untracked" },
+  ignored: { label: "I", colorVar: "--git-ignored" },
   conflicted: { label: "C", colorVar: "--git-conflicted" },
   staged: { label: "S", colorVar: "--git-added" },
 };

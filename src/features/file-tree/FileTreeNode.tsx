@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { FileIcon } from "./FileIcon";
+import { clipboard, copyToClipboard, cutToClipboard, pasteEntry } from "./clipboard";
 import type { DirEntry } from "../../types";
 import type { MenuItem } from "./ContextMenu";
 
@@ -16,6 +18,7 @@ const GIT_STATUS_COLOR: Record<string, string> = {
   modified: "var(--git-modified)",
   deleted: "var(--git-deleted)",
   untracked: "var(--git-untracked)",
+  ignored: "var(--git-ignored)",
   conflicted: "var(--git-conflicted)",
   renamed: "var(--git-modified)",
 };
@@ -26,6 +29,7 @@ const GIT_STATUS_BADGE: Record<string, string> = {
   modified: "M",
   deleted: "D",
   untracked: "U",
+  ignored: "I",
   conflicted: "C",
   renamed: "R",
 };
@@ -36,6 +40,9 @@ interface FileTreeNodeProps {
   projectPath: string;
   onFileClick: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, items: MenuItem[]) => void;
+  onSelect: (path: string) => void;
+  selectedPath: string | null;
+  cutPath: string | null;
   gitStatusMap?: Map<string, string>;
   gitDirtyDirs?: Set<string>;
 }
@@ -46,6 +53,9 @@ export const FileTreeNode = memo(function FileTreeNode({
   projectPath,
   onFileClick,
   onContextMenu,
+  onSelect,
+  selectedPath,
+  cutPath,
   gitStatusMap,
   gitDirtyDirs,
 }: FileTreeNodeProps) {
@@ -54,6 +64,48 @@ export const FileTreeNode = memo(function FileTreeNode({
   const [loaded, setLoaded] = useState(false);
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
+
+  // dnd-kit: make every node draggable. The `data` object is read in
+  // FileTree's onDragEnd to know which file/folder is being moved.
+  const {
+    attributes: dragAttributes,
+    listeners: dragListeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({
+    id: `drag-${entry.path}`,
+    data: { entry },
+  });
+
+  // dnd-kit: folders are drop targets. When something is dragged over a
+  // folder, `isOver` becomes true and we highlight it visually.
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `drop-${entry.path}`,
+    data: { entry },
+    disabled: !entry.is_dir,
+  });
+
+  // Combine both refs so the same DOM element is both draggable and droppable.
+  const combinedRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setDragRef(node);
+      setDropRef(node);
+    },
+    [setDragRef, setDropRef]
+  );
+
+  // Auto-expand folder when hovering with a dragged item for 600ms
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (isOver && entry.is_dir && !expanded) {
+      hoverTimerRef.current = setTimeout(() => {
+        toggleDir();
+      }, 600);
+    }
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, [isOver]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!entry.is_dir) return;
@@ -85,53 +137,63 @@ export const FileTreeNode = memo(function FileTreeNode({
     setExpanded((prev) => !prev);
   }, [entry, loaded, expanded]);
 
-  const handleClick = useCallback(() => {
-    if (entry.is_dir) {
-      toggleDir();
-    } else {
-      onFileClick(entry.path);
-    }
-  }, [entry, onFileClick, toggleDir]);
-
-  function handleDragStart(e: React.DragEvent) {
-    if (entry.is_dir) return;
-    const relativePath = entry.path.replace(projectPath + "/", "");
-    e.dataTransfer.setData("text/plain", entry.path);
-    e.dataTransfer.setData("absolute-path", entry.path);
-    e.dataTransfer.setData("relative-path", relativePath);
-    e.dataTransfer.effectAllowed = "copy";
-  }
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation(); // prevent background click from clearing selection
+      onSelect(entry.path);
+      if (entry.is_dir) {
+        toggleDir();
+      } else {
+        onFileClick(entry.path);
+      }
+    },
+    [entry, onFileClick, onSelect, toggleDir]
+  );
 
   function handleRightClick(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    const items: MenuItem[] = entry.is_dir
-      ? [
-          { label: "New File", action: () => promptCreate(entry.path, false) },
-          { label: "New Folder", action: () => promptCreate(entry.path, true) },
-          { label: "Rename", action: () => promptRename(entry.path) },
-          { label: "Delete", action: () => handleDelete(entry.path) },
-          {
-            label: "Copy Path",
-            action: () => navigator.clipboard.writeText(entry.path),
-          },
-        ]
-      : [
-          { label: "Open", action: () => onFileClick(entry.path) },
-          { label: "Rename", action: () => promptRename(entry.path) },
-          { label: "Delete", action: () => handleDelete(entry.path) },
-          {
-            label: "Copy Path",
-            action: () => navigator.clipboard.writeText(entry.path),
-          },
-          {
-            label: "Copy Relative Path",
-            action: () =>
-              navigator.clipboard.writeText(
-                entry.path.replace(projectPath + "/", "")
-              ),
-          },
-        ];
+    const items: MenuItem[] = [];
+
+    if (entry.is_dir) {
+      items.push(
+        { label: "New File", action: () => promptCreate(entry.path, false) },
+        { label: "New Folder", action: () => promptCreate(entry.path, true) }
+      );
+      if (clipboard) {
+        items.push({ label: "Paste", action: () => pasteEntry(entry.path) });
+      }
+      items.push(
+        { label: "Copy", action: () => copyToClipboard(entry.path) },
+        { label: "Cut", action: () => cutToClipboard(entry.path) },
+        { label: "Rename", action: () => promptRename(entry.path) },
+        { label: "Delete", action: () => handleDelete(entry.path) },
+        {
+          label: "Copy Path",
+          action: () => navigator.clipboard.writeText(entry.path),
+        }
+      );
+    } else {
+      items.push(
+        { label: "Open", action: () => onFileClick(entry.path) },
+        { label: "Copy", action: () => copyToClipboard(entry.path) },
+        { label: "Cut", action: () => cutToClipboard(entry.path) },
+        { label: "Rename", action: () => promptRename(entry.path) },
+        { label: "Delete", action: () => handleDelete(entry.path) },
+        {
+          label: "Copy Path",
+          action: () => navigator.clipboard.writeText(entry.path),
+        },
+        {
+          label: "Copy Relative Path",
+          action: () =>
+            navigator.clipboard.writeText(
+              entry.path.replace(projectPath + "/", "")
+            ),
+        }
+      );
+    }
+
     onContextMenu(e, items);
   }
 
@@ -146,15 +208,25 @@ export const FileTreeNode = memo(function FileTreeNode({
         ? "var(--git-modified)"
         : undefined;
 
+  const isSelected = selectedPath === entry.path;
+  const isCut = cutPath === entry.path;
+  const isIgnored = gitStatus === "ignored";
+
   return (
     <>
       <div
-        className="flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-primary hover:bg-border"
-        style={{ paddingLeft: depth * 16 + 8 }}
+        ref={combinedRef}
+        className={`flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-primary hover:bg-border transition-colors ${
+          isOver && entry.is_dir ? "bg-accent/20 outline outline-1 outline-accent" : ""
+        } ${isSelected ? "bg-border" : ""}`}
+        style={{
+          paddingLeft: depth * 16 + 8,
+          opacity: isDragging || isCut ? 0.4 : isIgnored ? 0.5 : 1,
+        }}
         onClick={handleClick}
         onContextMenu={handleRightClick}
-        draggable={!entry.is_dir}
-        onDragStart={handleDragStart}
+        {...dragAttributes}
+        {...dragListeners}
       >
         <FileIcon name={entry.name} isDir={entry.is_dir} expanded={expanded} />
         <span
@@ -181,6 +253,9 @@ export const FileTreeNode = memo(function FileTreeNode({
             projectPath={projectPath}
             onFileClick={onFileClick}
             onContextMenu={onContextMenu}
+            onSelect={onSelect}
+            selectedPath={selectedPath}
+            cutPath={cutPath}
             gitStatusMap={gitStatusMap}
             gitDirtyDirs={gitDirtyDirs}
           />
