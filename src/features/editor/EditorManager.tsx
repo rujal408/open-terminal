@@ -1,37 +1,52 @@
-import { useCallback, useState, useRef, memo } from "react";
+import { useCallback, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { v4 as uuidv4 } from "uuid";
-import { EditorPopover } from "./EditorPopover";
+import { TabbedEditorPanel } from "./TabbedEditorPanel";
 import type { EditorPanel, Theme } from "../../types";
 
 interface EditorManagerProps {
   editors: EditorPanel[];
+  activeEditorId: string | null;
   theme: Theme;
   onEditorsChange: (editors: EditorPanel[]) => void;
+  onActiveEditorChange: (id: string | null) => void;
 }
 
 export const EditorManager = memo(function EditorManager({
   editors,
+  activeEditorId,
   theme,
   onEditorsChange,
+  onActiveEditorChange,
 }: EditorManagerProps) {
-  const [focusOrder, setFocusOrder] = useState<string[]>([]);
-
-  // Keep refs to avoid stale closures in callbacks
   const editorsRef = useRef(editors);
   editorsRef.current = editors;
   const onEditorsChangeRef = useRef(onEditorsChange);
   onEditorsChangeRef.current = onEditorsChange;
+  const activeEditorIdRef = useRef(activeEditorId);
+  activeEditorIdRef.current = activeEditorId;
+  const onActiveEditorChangeRef = useRef(onActiveEditorChange);
+  onActiveEditorChangeRef.current = onActiveEditorChange;
 
-  const handleFocus = useCallback((id: string) => {
-    setFocusOrder((prev) => [...prev.filter((fid) => fid !== id), id]);
+  const handleTabChange = useCallback((id: string) => {
+    onActiveEditorChangeRef.current(id);
   }, []);
 
-  const handleClose = useCallback((id: string) => {
-    onEditorsChangeRef.current(
-      editorsRef.current.filter((e) => e.id !== id)
-    );
-    setFocusOrder((prev) => prev.filter((fid) => fid !== id));
+  const handleTabClose = useCallback((id: string) => {
+    const current = editorsRef.current;
+    const remaining = current.filter((e) => e.id !== id);
+    onEditorsChangeRef.current(remaining);
+
+    // If closing the active tab, switch to an adjacent one
+    if (id === activeEditorIdRef.current) {
+      if (remaining.length > 0) {
+        const closedIdx = current.findIndex((e) => e.id === id);
+        const newIdx = Math.min(closedIdx, remaining.length - 1);
+        onActiveEditorChangeRef.current(remaining[newIdx].id);
+      } else {
+        onActiveEditorChangeRef.current(null);
+      }
+    }
   }, []);
 
   const handleDirtyChange = useCallback((id: string, dirty: boolean) => {
@@ -42,46 +57,40 @@ export const EditorManager = memo(function EditorManager({
     );
   }, []);
 
+  if (editors.length === 0) return null;
+
   return (
-    <>
-      {editors.map((panel) => {
-        const zBase = 100;
-        const zOffset = focusOrder.indexOf(panel.id);
-        const z = zBase + (zOffset === -1 ? 0 : zOffset);
-        return (
-          <EditorPopover
-            key={panel.id}
-            panel={panel}
-            theme={theme}
-            onDirtyChange={handleDirtyChange}
-            onClose={handleClose}
-            onFocus={handleFocus}
-            zIndex={z}
-          />
-        );
-      })}
-    </>
+    <TabbedEditorPanel
+      editors={editors}
+      activeTabId={activeEditorId}
+      theme={theme}
+      onTabChange={handleTabChange}
+      onTabClose={handleTabClose}
+      onDirtyChange={handleDirtyChange}
+    />
   );
 });
 
 export async function openEditorPanel(
   filePath: string,
   currentEditors: EditorPanel[]
-): Promise<EditorPanel[]> {
+): Promise<{ editors: EditorPanel[]; activeId: string }> {
   const existing = currentEditors.find((e) => e.filePath === filePath);
-  if (existing) return currentEditors;
+  if (existing) return { editors: currentEditors, activeId: existing.id };
 
   const content = await invoke<string>("read_file", { path: filePath });
 
-  const offset = currentEditors.length * 30;
   const newPanel: EditorPanel = {
     id: uuidv4(),
     filePath,
     content,
     isDirty: false,
-    position: { x: 300 + offset, y: 80 + offset },
-    size: { width: 600, height: 400 },
+    position: { x: 0, y: 0 },
+    size: { width: 0, height: 0 },
   };
 
-  return [...currentEditors, newPanel];
+  return {
+    editors: [...currentEditors, newPanel],
+    activeId: newPanel.id,
+  };
 }

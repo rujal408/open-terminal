@@ -45,6 +45,8 @@ export const WorkspaceView = memo(function WorkspaceView({
   const [sidebarWidth, setSidebarWidth] = useState(250);
   // Which sidebar panel is visible: the file explorer or the git panel.
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
+  // Which editor tab is active in the tabbed editor panel.
+  const [activeEditorId, setActiveEditorId] = useState<string | null>(null);
   const resizingRef = useRef(false);
 
   // Refs that always point to the latest `workspace` and `onWorkspaceChange`.
@@ -84,11 +86,12 @@ export const WorkspaceView = memo(function WorkspaceView({
   }
 
   const handleFileClick = useCallback(async (path: string) => {
-    const updated = await openEditorPanel(
+    const { editors, activeId } = await openEditorPanel(
       path,
       workspaceRef.current.openEditors
     );
-    onChangeRef.current({ ...workspaceRef.current, openEditors: updated });
+    onChangeRef.current({ ...workspaceRef.current, openEditors: editors });
+    setActiveEditorId(activeId);
   }, []);
 
   const handleEditorsChange = useCallback(
@@ -159,7 +162,7 @@ export const WorkspaceView = memo(function WorkspaceView({
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
       {/* Icon rail */}
       <div className="flex flex-col items-center w-10 shrink-0 bg-sidebar border-r border-border py-1 gap-1">
         <button
@@ -244,12 +247,16 @@ export const WorkspaceView = memo(function WorkspaceView({
           isActive={isActive}
           onPanesChange={handlePanesChange}
         />
-        <EditorManager
-          editors={workspace.openEditors}
-          theme={theme}
-          onEditorsChange={handleEditorsChange}
-        />
       </div>
+      {/* Editor panel renders outside the overflow-hidden content area so it
+          can float above the sidebar and tab bar (z-index 500). */}
+      <EditorManager
+        editors={workspace.openEditors}
+        activeEditorId={activeEditorId}
+        theme={theme}
+        onEditorsChange={handleEditorsChange}
+        onActiveEditorChange={setActiveEditorId}
+      />
     </div>
   );
 });

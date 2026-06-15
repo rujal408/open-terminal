@@ -18,6 +18,7 @@
   --color-git-modified: var(--git-modified);
   --color-git-deleted: var(--git-deleted);
   --color-git-untracked: var(--git-untracked);
+  --color-git-ignored: var(--git-ignored);
   --color-git-conflicted: var(--git-conflicted);
 }
 
@@ -155,4 +156,12 @@ input, textarea {
   height: 1px;
   background: var(--border);
   margin: 4px 8px;
+}
+
+/* Hide scrollbar on editor tab bar */
+.tabs-scrollbar-hide {
+  scrollbar-width: none;
+}
+.tabs-scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
