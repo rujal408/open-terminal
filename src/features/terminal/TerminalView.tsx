@@ -3,7 +3,7 @@
 // - Drag-and-drop of file paths from the file tree onto the terminal
 // - Refitting when the tab becomes visible again after being hidden
 
-import { useRef, useEffect, useState, memo } from "react";
+import { useRef, useEffect, memo } from "react";
 import { useTerminal } from "./useTerminal";
 import type { Theme } from "../../types";
 import "xterm/css/xterm.css";
@@ -40,7 +40,18 @@ export const TerminalView = memo(function TerminalView({
     shell,
   });
 
-  const [dragOver, setDragOver] = useState(false);
+  // Drag-over highlight is toggled directly on the DOM (not via React state)
+  // so hovering a dragged file never re-renders the terminal. xterm renders
+  // many child nodes (canvas, rows, textarea); their `dragleave` events bubble
+  // up to this container, so a naive boolean would flip on/off as the pointer
+  // crosses each child — that was the flickering border. We count enter/leave
+  // events instead: the outline shows while depth > 0 and only clears once the
+  // pointer truly leaves the terminal.
+  const dragDepthRef = useRef(0);
+
+  function setDragHighlight(on: boolean) {
+    containerRef.current?.classList.toggle("terminal-drag-over", on);
+  }
 
   // Defer attach by one animation frame so the CSS grid/flexbox layout has
   // fully resolved the container's dimensions before we do expensive work
@@ -76,14 +87,21 @@ export const TerminalView = memo(function TerminalView({
     }
   }, [isActive, refit]);
 
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    if (dragDepthRef.current === 1) setDragHighlight(true);
+  }
+
   function handleDragOver(e: React.DragEvent) {
+    // Must preventDefault on every dragover or the drop is rejected.
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
-    setDragOver(true);
   }
 
   function handleDragLeave() {
-    setDragOver(false);
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setDragHighlight(false);
   }
 
   // Handle file drops from the file tree sidebar. The file tree sets both
@@ -93,7 +111,8 @@ export const TerminalView = memo(function TerminalView({
   // PTY as raw keystrokes, so it appears at the cursor as if the user typed it.
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
-    setDragOver(false);
+    dragDepthRef.current = 0;
+    setDragHighlight(false);
 
     const dataKey =
       dragDropPathMode === "relative" ? "relative-path" : "absolute-path";
@@ -113,8 +132,9 @@ export const TerminalView = memo(function TerminalView({
   return (
     <div
       ref={containerRef}
-      className={`terminal-container ${dragOver ? "terminal-drag-over" : ""}`}
+      className="terminal-container"
       style={{ flex: 1, height: "100%", overflow: "hidden" }}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

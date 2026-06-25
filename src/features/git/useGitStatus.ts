@@ -138,8 +138,10 @@ export function useGitStatus(projectPath: string | null) {
   //     For every changed file, we walk up the path and mark each ancestor
   //     directory with the dominant child status. Higher-priority statuses
   //     (conflicted > modified > staged > untracked) override lower ones.
-  //     "ignored" is lowest — a directory only shows as ignored when ALL
-  //     its changed children are ignored.
+  //     "ignored" is intentionally NOT propagated to ancestors: an ignored
+  //     entry (e.g. node_modules) colors only itself, never its parent dirs —
+  //     otherwise a whole project folder would grey out just for containing a
+  //     gitignored directory (matches VS Code's behavior).
   //
   // Both are memoized on `status` so that when the poll returns identical
   // data, FileTree (which is memo'd) gets the same object references and
@@ -156,8 +158,10 @@ export function useGitStatus(projectPath: string | null) {
     const map = new Map<string, string>();
     const dirs = new Map<string, string>();
     if (status.is_repo) {
-      const addEntry = (path: string, st: string) => {
+      const addEntry = (path: string, st: string, propagate = true) => {
         map.set(path, st);
+        // Ignored entries color only themselves — don't bubble up to parents.
+        if (!propagate) return;
         const priority = STATUS_PRIORITY[st] ?? 1;
         // Walk up and mark ancestor directories with the dominant status
         let parent = path;
@@ -177,7 +181,7 @@ export function useGitStatus(projectPath: string | null) {
       for (const f of status.staged) addEntry(f.path, "staged");
       for (const f of status.modified) addEntry(f.path, f.status);
       for (const f of status.untracked) addEntry(f.path, "untracked");
-      for (const f of status.ignored) addEntry(f.path, "ignored");
+      for (const f of status.ignored) addEntry(f.path, "ignored", false);
       for (const f of status.conflicted) addEntry(f.path, "conflicted");
     }
     return { statusMap: map, dirtyDirs: dirs };

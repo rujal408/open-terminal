@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { FileTreeNode } from "./FileTreeNode";
@@ -44,9 +44,10 @@ export const FileTree = memo(function FileTree({
     items: MenuItem[];
   } | null>(null);
 
-  // Highlights the empty tree area when a dragged item hovers it (drop here
-  // moves the item to the project root).
-  const [isRootOver, setIsRootOver] = useState(false);
+  // The empty tree area is a drop zone (drop here moves the item to the
+  // project root). Its highlight is toggled directly on the DOM rather than
+  // via state so dragging across the tree never re-renders this component.
+  const rootScrollRef = useRef<HTMLDivElement>(null);
 
   // Currently selected (clicked) item in the file tree
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -159,29 +160,35 @@ export const FileTree = memo(function FileTree({
   // empty space — move it to the project root. Highlight only when hovering
   // the empty area directly (target === currentTarget) so we don't double up
   // with a folder's own highlight.
+  const setRootHighlight = useCallback((on: boolean) => {
+    rootScrollRef.current?.classList.toggle("tree-root-over", on);
+  }, []);
+
   const handleRootDragOver = useCallback(
     (e: React.DragEvent) => {
       if (!isTreeDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      setIsRootOver(e.target === e.currentTarget);
+      // Highlight only when hovering the empty area itself, not a child row
+      // (folder rows show their own highlight and stop propagation).
+      setRootHighlight(e.target === e.currentTarget);
     },
-    []
+    [setRootHighlight]
   );
 
   const handleRootDragLeave = useCallback(() => {
-    setIsRootOver(false);
-  }, []);
+    setRootHighlight(false);
+  }, [setRootHighlight]);
 
   const handleRootDrop = useCallback(
     (e: React.DragEvent) => {
       if (!isTreeDrag(e)) return;
       e.preventDefault();
-      setIsRootOver(false);
+      setRootHighlight(false);
       const dragged = readTreeDrag(e);
       if (dragged) moveEntryInto(dragged, projectPath);
     },
-    [projectPath]
+    [projectPath, setRootHighlight]
   );
 
   const handleContextMenu = useCallback(
@@ -239,9 +246,8 @@ export const FileTree = memo(function FileTree({
         {projectPath.split("/").pop()}
       </div>
       <div
-        className={`flex-1 overflow-y-auto py-1 ${
-          isRootOver ? "outline outline-1 outline-accent outline-offset-[-1px]" : ""
-        }`}
+        ref={rootScrollRef}
+        className="flex-1 overflow-y-auto py-1"
         onDragOver={handleRootDragOver}
         onDragLeave={handleRootDragLeave}
         onDrop={handleRootDrop}

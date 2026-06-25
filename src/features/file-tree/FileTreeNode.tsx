@@ -65,11 +65,20 @@ export const FileTreeNode = memo(function FileTreeNode({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  // Native HTML5 drag state. `isDragging` fades this row while it's being
-  // dragged; `isOver` highlights this folder when a tree item hovers over it.
+  // `isDragging` fades this row while it's being dragged. The drop highlight,
+  // by contrast, is toggled directly on the DOM (rowRef) rather than via state
+  // so hovering a dragged item never re-renders this row. A row has child
+  // nodes (icon, label) whose dragleave events bubble up here, so we count
+  // enter/leave depth and only clear the highlight once the pointer truly
+  // leaves — otherwise the outline would flicker as the pointer crosses them.
   const [isDragging, setIsDragging] = useState(false);
-  const [isOver, setIsOver] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const dragDepthRef = useRef(0);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function setDropHighlight(on: boolean) {
+    rowRef.current?.classList.toggle("tree-drop-over", on);
+  }
 
   // Path relative to the project root, set on the drag payload so the terminal
   // can insert it when the user prefers relative paths.
@@ -91,17 +100,26 @@ export const FileTreeNode = memo(function FileTreeNode({
 
   function handleDragEnd() {
     setIsDragging(false);
+    dragDepthRef.current = 0;
+    setDropHighlight(false);
     clearHoverTimer();
   }
 
   // --- Drop target: only folders accept in-tree moves. We gate on isTreeDrag
   // so drags from elsewhere (e.g. an editor tab) don't highlight folders.
-  function handleDragOver(e: React.DragEvent) {
+  function handleDragEnter(e: React.DragEvent) {
     if (!entry.is_dir || !isTreeDrag(e)) return;
     e.preventDefault();
     e.stopPropagation(); // don't let the root drop zone also react
+    dragDepthRef.current += 1;
+    if (dragDepthRef.current === 1) setDropHighlight(true);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    if (!entry.is_dir || !isTreeDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
-    if (!isOver) setIsOver(true);
     // Auto-expand a collapsed folder after hovering for 600ms.
     if (!expanded && !hoverTimerRef.current) {
       hoverTimerRef.current = setTimeout(() => {
@@ -112,15 +130,19 @@ export const FileTreeNode = memo(function FileTreeNode({
   }
 
   function handleDragLeave() {
-    setIsOver(false);
-    clearHoverTimer();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setDropHighlight(false);
+      clearHoverTimer();
+    }
   }
 
   function handleDrop(e: React.DragEvent) {
     if (!entry.is_dir || !isTreeDrag(e)) return;
     e.preventDefault();
     e.stopPropagation();
-    setIsOver(false);
+    dragDepthRef.current = 0;
+    setDropHighlight(false);
     clearHoverTimer();
     const dragged = readTreeDrag(e);
     if (dragged) moveEntryInto(dragged, entry.path);
@@ -234,10 +256,11 @@ export const FileTreeNode = memo(function FileTreeNode({
   return (
     <>
       <div
+        ref={rowRef}
         draggable
         className={`flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-primary hover:bg-border transition-colors ${
-          isOver && entry.is_dir ? "bg-accent/20 outline outline-1 outline-accent" : ""
-        } ${isSelected ? "bg-border" : ""}`}
+          isSelected ? "bg-border" : ""
+        }`}
         style={{
           paddingLeft: depth * 16 + 8,
           opacity: isDragging || isCut ? 0.4 : isIgnored ? 0.5 : 1,
@@ -246,6 +269,7 @@ export const FileTreeNode = memo(function FileTreeNode({
         onContextMenu={handleRightClick}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

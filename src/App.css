@@ -62,6 +62,18 @@ input, textarea {
   outline-offset: -2px;
 }
 
+/* File-tree drop-target highlights. Toggled directly on the DOM (see
+   FileTreeNode/FileTree) so dragging over the tree never triggers a re-render. */
+.tree-drop-over {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.tree-root-over {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
 /* Terminal resizable panel handles */
 .terminal-resize-handle {
   background: var(--border);
