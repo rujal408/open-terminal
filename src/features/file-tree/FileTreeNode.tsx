@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useDraggable, useDroppable } from "@dnd-kit/core";
 import { FileIcon } from "./FileIcon";
 import { clipboard, copyToClipboard, cutToClipboard, pasteEntry } from "./clipboard";
+import { writeTreeDrag, readTreeDrag, isTreeDrag, moveEntryInto } from "./treeDnd";
 import type { DirEntry } from "../../types";
 import type { MenuItem } from "./ContextMenu";
 
@@ -65,47 +65,66 @@ export const FileTreeNode = memo(function FileTreeNode({
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
 
-  // dnd-kit: make every node draggable. The `data` object is read in
-  // FileTree's onDragEnd to know which file/folder is being moved.
-  const {
-    attributes: dragAttributes,
-    listeners: dragListeners,
-    setNodeRef: setDragRef,
-    isDragging,
-  } = useDraggable({
-    id: `drag-${entry.path}`,
-    data: { entry },
-  });
-
-  // dnd-kit: folders are drop targets. When something is dragged over a
-  // folder, `isOver` becomes true and we highlight it visually.
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `drop-${entry.path}`,
-    data: { entry },
-    disabled: !entry.is_dir,
-  });
-
-  // Combine both refs so the same DOM element is both draggable and droppable.
-  const combinedRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      setDragRef(node);
-      setDropRef(node);
-    },
-    [setDragRef, setDropRef]
-  );
-
-  // Auto-expand folder when hovering with a dragged item for 600ms
+  // Native HTML5 drag state. `isDragging` fades this row while it's being
+  // dragged; `isOver` highlights this folder when a tree item hovers over it.
+  const [isDragging, setIsDragging] = useState(false);
+  const [isOver, setIsOver] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (isOver && entry.is_dir && !expanded) {
+
+  // Path relative to the project root, set on the drag payload so the terminal
+  // can insert it when the user prefers relative paths.
+  const relativePath = entry.path.replace(projectPath + "/", "");
+
+  const clearHoverTimer = useCallback(() => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }, []);
+
+  // --- Drag source: every node can be dragged out to a folder, the terminal,
+  // or an editor. writeTreeDrag puts the path(s) on the dataTransfer.
+  function handleDragStart(e: React.DragEvent) {
+    writeTreeDrag(e, entry, relativePath);
+    setIsDragging(true);
+  }
+
+  function handleDragEnd() {
+    setIsDragging(false);
+    clearHoverTimer();
+  }
+
+  // --- Drop target: only folders accept in-tree moves. We gate on isTreeDrag
+  // so drags from elsewhere (e.g. an editor tab) don't highlight folders.
+  function handleDragOver(e: React.DragEvent) {
+    if (!entry.is_dir || !isTreeDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation(); // don't let the root drop zone also react
+    e.dataTransfer.dropEffect = "move";
+    if (!isOver) setIsOver(true);
+    // Auto-expand a collapsed folder after hovering for 600ms.
+    if (!expanded && !hoverTimerRef.current) {
       hoverTimerRef.current = setTimeout(() => {
+        hoverTimerRef.current = null;
         toggleDir();
       }, 600);
     }
-    return () => {
-      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    };
-  }, [isOver]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
+
+  function handleDragLeave() {
+    setIsOver(false);
+    clearHoverTimer();
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    if (!entry.is_dir || !isTreeDrag(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsOver(false);
+    clearHoverTimer();
+    const dragged = readTreeDrag(e);
+    if (dragged) moveEntryInto(dragged, entry.path);
+  }
 
   useEffect(() => {
     if (!entry.is_dir) return;
@@ -215,7 +234,7 @@ export const FileTreeNode = memo(function FileTreeNode({
   return (
     <>
       <div
-        ref={combinedRef}
+        draggable
         className={`flex items-center gap-1.5 py-[3px] pr-2 cursor-pointer text-[13px] text-primary hover:bg-border transition-colors ${
           isOver && entry.is_dir ? "bg-accent/20 outline outline-1 outline-accent" : ""
         } ${isSelected ? "bg-border" : ""}`}
@@ -225,8 +244,11 @@ export const FileTreeNode = memo(function FileTreeNode({
         }}
         onClick={handleClick}
         onContextMenu={handleRightClick}
-        {...dragAttributes}
-        {...dragListeners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
         <FileIcon name={entry.name} isDir={entry.is_dir} expanded={expanded} />
         <span

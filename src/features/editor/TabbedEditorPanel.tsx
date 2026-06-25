@@ -128,6 +128,7 @@ interface EditorTabBarProps {
   editors: EditorPanel[];
   activeTabId: string | null;
   maximized: boolean;
+  projectPath: string;
   onTabChange: (id: string) => void;
   onCloseTab: (id: string) => void;
   onToggleMaximize: () => void;
@@ -138,11 +139,21 @@ function EditorTabBar({
   editors,
   activeTabId,
   maximized,
+  projectPath,
   onTabChange,
   onCloseTab,
   onToggleMaximize,
   onTabBarMouseDown,
 }: EditorTabBarProps) {
+  // Dragging a tab out onto the terminal inserts the file's path. We don't set
+  // the tree-entry MIME, so dropping a tab on a folder won't move any file.
+  function handleTabDragStart(e: React.DragEvent, filePath: string) {
+    const relativePath = filePath.replace(projectPath + "/", "");
+    e.dataTransfer.setData("absolute-path", filePath);
+    e.dataTransfer.setData("relative-path", relativePath);
+    e.dataTransfer.setData("text/plain", filePath);
+    e.dataTransfer.effectAllowed = "copy";
+  }
   const tabBarRef = useRef<HTMLDivElement>(null);
   const [maxVisibleTabs, setMaxVisibleTabs] = useState(editors.length);
   const [showOverflow, setShowOverflow] = useState(false);
@@ -228,6 +239,7 @@ function EditorTabBar({
             <div
               key={panel.id}
               data-tab-button
+              draggable
               className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] cursor-pointer border-r border-border shrink-0 ${
                 isActive
                   ? "bg-editor text-primary border-t-2 border-t-accent"
@@ -235,6 +247,7 @@ function EditorTabBar({
               }`}
               style={{ width: TAB_WIDTH, maxWidth: TAB_WIDTH }}
               onClick={() => onTabChange(panel.id)}
+              onDragStart={(e) => handleTabDragStart(e, panel.filePath)}
             >
               {panel.isDirty && (
                 <span className="text-accent text-[10px] shrink-0">●</span>
@@ -329,6 +342,7 @@ interface TabbedEditorPanelProps {
   activeTabId: string | null;
   theme: Theme;
   sidebarWidth: number;
+  projectPath: string;
   onTabChange: (id: string) => void;
   onTabClose: (id: string) => void;
   onDirtyChange: (id: string, dirty: boolean) => void;
@@ -342,6 +356,7 @@ export function TabbedEditorPanel({
   activeTabId,
   theme,
   sidebarWidth,
+  projectPath,
   onTabChange,
   onTabClose,
   onDirtyChange,
@@ -574,6 +589,7 @@ export function TabbedEditorPanel({
         editors={editors}
         activeTabId={activeTabId}
         maximized={maximized}
+        projectPath={projectPath}
         onTabChange={onTabChange}
         onCloseTab={handleCloseTab}
         onToggleMaximize={handleToggleMaximize}

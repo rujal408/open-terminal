@@ -1,19 +1,9 @@
 import { useState, useEffect, useCallback, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  pointerWithin,
-} from "@dnd-kit/core";
-import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
 import { FileTreeNode } from "./FileTreeNode";
-import { FileIcon } from "./FileIcon";
 import { ContextMenu } from "./ContextMenu";
+import { isTreeDrag, readTreeDrag, moveEntryInto } from "./treeDnd";
 import {
   clipboard,
   clearClipboard,
@@ -54,8 +44,9 @@ export const FileTree = memo(function FileTree({
     items: MenuItem[];
   } | null>(null);
 
-  // The entry currently being dragged (shown in DragOverlay)
-  const [activeEntry, setActiveEntry] = useState<DirEntry | null>(null);
+  // Highlights the empty tree area when a dragged item hovers it (drop here
+  // moves the item to the project root).
+  const [isRootOver, setIsRootOver] = useState(false);
 
   // Currently selected (clicked) item in the file tree
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -74,14 +65,6 @@ export const FileTree = memo(function FileTree({
   // The path that should appear faded (only for "cut" operations)
   const cutPath =
     clipboardState?.operation === "cut" ? clipboardState.path : null;
-
-  // Root drop zone — dropping here moves the item to the project root
-  const { setNodeRef: setRootDropRef, isOver: isRootOver } = useDroppable({
-    id: "drop-root",
-    data: {
-      entry: { path: projectPath, name: "", is_dir: true, is_hidden: false },
-    },
-  });
 
   useEffect(() => {
     invoke<DirEntry[]>("list_directory", { path: projectPath }).then(
@@ -171,47 +154,35 @@ export const FileTree = memo(function FileTree({
     setSelectedPath(path);
   }, []);
 
-  // PointerSensor with 5px activation distance so clicks don't trigger drags
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  // Root drop zone (the empty tree area). Folder rows call stopPropagation on
+  // their own drop handlers, so anything that reaches here is a drop onto
+  // empty space — move it to the project root. Highlight only when hovering
+  // the empty area directly (target === currentTarget) so we don't double up
+  // with a folder's own highlight.
+  const handleRootDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!isTreeDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      setIsRootOver(e.target === e.currentTarget);
+    },
+    []
   );
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const entry = event.active.data.current?.entry as DirEntry | undefined;
-    setActiveEntry(entry ?? null);
+  const handleRootDragLeave = useCallback(() => {
+    setIsRootOver(false);
   }, []);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveEntry(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const draggedEntry = active.data.current?.entry as DirEntry | undefined;
-    const targetEntry = over.data.current?.entry as DirEntry | undefined;
-
-    if (!draggedEntry || !targetEntry) return;
-    if (!targetEntry.is_dir) return;
-
-    // Don't drop a folder into itself
-    if (draggedEntry.path === targetEntry.path) return;
-    // Don't drop into a child of itself (prevents circular moves)
-    if (targetEntry.path.startsWith(draggedEntry.path + "/")) return;
-
-    const fileName = draggedEntry.name;
-    const newPath = `${targetEntry.path}/${fileName}`;
-
-    // Don't move if it's already in that folder
-    if (draggedEntry.path === newPath) return;
-
-    invoke("rename_entry", {
-      oldPath: draggedEntry.path,
-      newPath,
-    }).catch((e) => alert(`Failed to move: ${e}`));
-  }, []);
-
-  const handleDragCancel = useCallback(() => {
-    setActiveEntry(null);
-  }, []);
+  const handleRootDrop = useCallback(
+    (e: React.DragEvent) => {
+      if (!isTreeDrag(e)) return;
+      e.preventDefault();
+      setIsRootOver(false);
+      const dragged = readTreeDrag(e);
+      if (dragged) moveEntryInto(dragged, projectPath);
+    },
+    [projectPath]
+  );
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, items: MenuItem[]) => {
@@ -258,65 +229,47 @@ export const FileTree = memo(function FileTree({
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={pointerWithin}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
+    <div
+      tabIndex={0}
+      className="file-tree-container w-full h-full bg-sidebar flex flex-col overflow-hidden select-none outline-none"
+      onContextMenu={handleBackgroundContextMenu}
+      onClick={handleBackgroundClick}
     >
+      <div className="px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide border-b border-border">
+        {projectPath.split("/").pop()}
+      </div>
       <div
-        ref={setRootDropRef}
-        tabIndex={0}
-        className={`file-tree-container w-full h-full bg-sidebar flex flex-col overflow-hidden select-none outline-none ${
+        className={`flex-1 overflow-y-auto py-1 ${
           isRootOver ? "outline outline-1 outline-accent outline-offset-[-1px]" : ""
         }`}
-        onContextMenu={handleBackgroundContextMenu}
-        onClick={handleBackgroundClick}
+        onDragOver={handleRootDragOver}
+        onDragLeave={handleRootDragLeave}
+        onDrop={handleRootDrop}
       >
-        <div className="px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide border-b border-border">
-          {projectPath.split("/").pop()}
-        </div>
-        <div className="flex-1 overflow-y-auto py-1">
-          {entries.map((entry) => (
-            <FileTreeNode
-              key={entry.path}
-              entry={entry}
-              depth={0}
-              projectPath={projectPath}
-              onFileClick={onFileClick}
-              onContextMenu={handleContextMenu}
-              onSelect={handleSelect}
-              selectedPath={selectedPath}
-              cutPath={cutPath}
-              gitStatusMap={gitStatusMap}
-              gitDirtyDirs={gitDirtyDirs}
-            />
-          ))}
-        </div>
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={contextMenu.items}
-            onClose={() => setContextMenu(null)}
+        {entries.map((entry) => (
+          <FileTreeNode
+            key={entry.path}
+            entry={entry}
+            depth={0}
+            projectPath={projectPath}
+            onFileClick={onFileClick}
+            onContextMenu={handleContextMenu}
+            onSelect={handleSelect}
+            selectedPath={selectedPath}
+            cutPath={cutPath}
+            gitStatusMap={gitStatusMap}
+            gitDirtyDirs={gitDirtyDirs}
           />
-        )}
+        ))}
       </div>
-
-      {/* Floating preview shown while dragging */}
-      <DragOverlay dropAnimation={null}>
-        {activeEntry && (
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-sidebar border border-accent rounded text-[13px] text-primary opacity-90 shadow-lg pointer-events-none">
-            <FileIcon
-              name={activeEntry.name}
-              isDir={activeEntry.is_dir}
-              expanded={false}
-            />
-            <span>{activeEntry.name}</span>
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenu.items}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+    </div>
   );
 });
